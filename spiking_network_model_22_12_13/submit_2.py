@@ -72,17 +72,17 @@ def pad_zeros(to_pad, length):
 		padded = '0' + padded
 	return padded
 
-batch_size = 6
+batch_size = 8
 
 params = OrderedDict()
-params['SEED'] = [str(i) for i in range(2000, 2010)]
+params['SEED'] = [str(i) for i in range(2000, 2008)]
 params['W_E_E'] = [str(1.2e-3)]
 params['W_E_I'] = [str(7e-5)]
-params['W_I_E'] = [str(5e-5)]
-params['DROP_SEV'] = [str(0.1), str(0.25), str(0.5)]
-params['COMP_MECH'] = ['firing_rate', 'firing_rate_downward']
+params['W_I_E'] = [str(4e-5)]
+params['DROP_SEV'] = [str(0.5)]
+params['COMP_MECH'] = ['firing_rate', 'secreted_regulation']
 params['CONDITION'] = ['no_repl_no_syn']
-params['PER_SILENT'] = [str(0)]
+params['PER_SILENT'] = [str(0), str(0.4)]
 
 n_seeds = len(params['SEED'])
 

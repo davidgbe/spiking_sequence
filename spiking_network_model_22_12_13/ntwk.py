@@ -19,7 +19,7 @@ cc = np.concatenate
 class LIFNtwkG(object):
     """Network of leaky integrate-and-fire neurons with *conductance-based* synapses."""
     
-    def __init__(self, c_m, g_l, e_l, v_th, v_r, t_r, e_s, t_s, w_r, w_u, pairwise_spk_delays, delay_map, sparse=True):
+    def __init__(self, c_m, g_l, e_l, v_th, v_r, t_r, e_s, t_s, stdp_t_s, stdp_coefs, w_r, w_u, pairwise_spk_delays, delay_map, sparse=False):
         # ntwk size
         n = next(iter(w_r.values())).shape[0]
         
@@ -41,6 +41,11 @@ class LIFNtwkG(object):
         
         self.e_s = e_s
         self.t_s = t_s
+
+        self.stdp_t_s = stdp_t_s
+        self.stdp_coefs = stdp_coefs
+
+        self.sparse = sparse
         
         if sparse:  # sparsify connectivity if desired
             # self.w_r = w_r
@@ -75,6 +80,8 @@ class LIFNtwkG(object):
         t_r_int = np.round(t_r/dt).astype(int)
         e_s = self.e_s
         t_s = self.t_s
+        stdp_t_s = self.stdp_t_s
+        stdp_coefs = self.stdp_coefs
         w_r = self.w_r
         w_u = self.w_u
         
@@ -82,7 +89,14 @@ class LIFNtwkG(object):
         gs = {syn: np.nan * np.zeros((n_t, n)) for syn in syns}
         vs = np.nan * np.zeros((n_t, n))
         spks = np.zeros((n_t, n), dtype=bool)
+        # (n_timesteps, receiving_neuron_idx, emitting_neuron_idx)
         spks_received = np.zeros((n_t + self.pairwise_spk_delays.max(), n, n), dtype=bool)
+
+        # initialize arrays of decaying exponentials for tracking triplet STDP
+        spks_decaying_exp_LTP = np.zeros((n_t, n), dtype=float)
+        spks_decaying_exp_LTD = np.zeros((n_t, n), dtype=float)
+        spks_received_decaying_exp_LTP = np.zeros((n_t + self.pairwise_spk_delays.max(), n, n), dtype=float)
+        spks_received_decaying_exp_LTD = np.zeros((n_t + self.pairwise_spk_delays.max(), n, n), dtype=float)
         
         rp_ctr = np.zeros(n, dtype=int)
         
@@ -93,6 +107,11 @@ class LIFNtwkG(object):
         clamp = Generic(
             v={int(round(t_/dt)): f_v for t_, f_v in tmp_v},
             spk={int(round(t_/dt)): f_spk for t_, f_spk in tmp_spk})
+
+        pair_update_plus_summed = 0
+        trip_update_plus_summed = 0
+        pair_update_minus_summed = 0
+        trip_update_minus_summed = 0
         
         # loop over timesteps
         for t_ctr in range(len(i_ext)):
@@ -105,7 +124,10 @@ class LIFNtwkG(object):
                     g = gs[syn][t_ctr-1, :]
                     # get weighted spike inputs
                     # recurrent
-                    inp = np.sum(w_r[syn].multiply(spks_received[t_ctr-1, ...]), axis=1)
+                    if self.sparse:
+                        inp = np.sum(w_r[syn].multiply(spks_received[t_ctr-1, ...]), axis=1)
+                    else:
+                        inp = np.sum(w_r[syn] * spks_received[t_ctr-1, ...], axis=1)
                     inp = inp.reshape(inp.shape[0])
 
                     ## upstream
@@ -115,8 +137,6 @@ class LIFNtwkG(object):
                     
                     # update conductances from weighted spks
                     gs[syn][t_ctr, :] = g + (dt/t_s[syn])*(-gs[syn][t_ctr-1, :]) + inp
-
-            # spk_emit_times += 1
             
             # update voltages
             if t_ctr in clamp.v:  # check for clamped voltages
@@ -149,6 +169,27 @@ class LIFNtwkG(object):
                     for k in nonzero_spks:
                         spks_received[self.delay_map[k][0] + t_ctr - 1, self.delay_map[k][1], k] = 1
 
+            # compute STDP updates
+            pair_update_plus = stdp_coefs['A_PAIR_PLUS'] * spks_received_decaying_exp_LTP[t_ctr - 1, ...] * spks[t_ctr, :].astype(int).reshape(spks.shape[1], 1)
+            pair_update_minus = stdp_coefs['A_PAIR_MINUS'] * spks_decaying_exp_LTD[t_ctr - 1, :].reshape(spks_decaying_exp_LTD.shape[1], 1) * spks_received[t_ctr, ...].astype(int)
+            trip_update_plus = stdp_coefs['A_TRIP_PLUS'] * spks_decaying_exp_LTP[t_ctr - 1, :].reshape(spks_decaying_exp_LTP.shape[1], 1) * spks_received_decaying_exp_LTP[t_ctr - 1, :] * spks[t_ctr, :].astype(int).reshape(spks.shape[1], 1)
+            trip_update_minus = stdp_coefs['A_TRIP_MINUS'] * spks_received_decaying_exp_LTD[t_ctr - 1, ...] * spks_decaying_exp_LTD[t_ctr - 1, :] * spks_received[t_ctr, ...].astype(int)
+
+            pair_update_plus_summed += pair_update_plus
+            trip_update_plus_summed += trip_update_plus
+            pair_update_minus_summed += pair_update_minus
+            trip_update_minus_summed += trip_update_minus
+
+            # update decaying exponential filters of spikes for STDP rules  
+            # each cell needs to integrate its own activity plus spks_received
+            # integrate spks_received with different time constants
+
+            if t_ctr > 0:
+                spks_decaying_exp_LTP[t_ctr, :] = np.where(spks[t_ctr - 1, :].astype(int), 1, spks_decaying_exp_LTP[t_ctr - 1, :] * (1 - dt / stdp_t_s['TAU_STDP_TRIP_PLUS']))
+                spks_decaying_exp_LTD[t_ctr, :] = np.where(spks[t_ctr - 1, :].astype(int), 1, spks_decaying_exp_LTD[t_ctr - 1, :] * (1 - dt / stdp_t_s['TAU_STDP_TRIP_MINUS']))
+                spks_received_decaying_exp_LTP[t_ctr, ...] = np.where(spks_received[t_ctr - 1, ...].astype(int), 1,  spks_received_decaying_exp_LTP[t_ctr - 1, ...] * (1 - dt / stdp_t_s['TAU_STDP_PAIR_PLUS']))
+                spks_received_decaying_exp_LTD[t_ctr, ...] = np.where(spks_received[t_ctr - 1, ...].astype(int), 1,  spks_received_decaying_exp_LTD[t_ctr - 1, ...] * (1 - dt / stdp_t_s['TAU_STDP_PAIR_MINUS']))
+
             # reset v and update refrac periods for nrns that spiked
             vs[t_ctr, spks[t_ctr, :]] = v_r[spks[t_ctr, :]]
             rp_ctr[spks[t_ctr, :]] = t_r_int[spks[t_ctr, :]] + 1
@@ -163,4 +204,19 @@ class LIFNtwkG(object):
         spks_t = dt * tmp[0]
         spks_c = tmp[1]
         
-        return Generic(dt=dt, t=t, gs=gs, vs=vs, spks=spks, spks_t=spks_t, spks_c=spks_c, spks_received=spks_received, i_ext=i_ext, ntwk=self)
+        return Generic(
+            dt=dt,
+            t=t,
+            gs=gs,
+            vs=vs,
+            spks=spks,
+            spks_t=spks_t,
+            spks_c=spks_c,
+            spks_received=spks_received,
+            i_ext=i_ext,
+            ntwk=self,
+            pair_update_plus=pair_update_plus_summed,
+            trip_update_plus=trip_update_plus_summed,
+            pair_update_minus=pair_update_minus_summed,
+            trip_update_minus=trip_update_minus_summed,
+        )

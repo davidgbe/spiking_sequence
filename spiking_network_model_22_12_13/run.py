@@ -18,6 +18,8 @@ from ntwk import LIFNtwkG
 from utils.general import *
 from utils.file_io import *
 
+import resource
+
 matplotlib.use('agg')
 
 cc = np.concatenate
@@ -33,7 +35,6 @@ parser.add_argument('--w_ei', metavar='ei', type=float, nargs=1)
 parser.add_argument('--w_ie', metavar='ie', type=float, nargs=1)
 parser.add_argument('--alpha_5', metavar='a5', type=float, nargs=1)
 parser.add_argument('--silent_fraction', metavar='sf', type=float, nargs=1)
-parser.add_argument('--index', metavar='I', type=int, nargs=1)
 parser.add_argument('--hetero_comp_mech', metavar='H', type=str, nargs=1)
 parser.add_argument('--stdp_type', metavar='S', type=str, nargs=1)
 parser.add_argument('--load_run', metavar='L', type=str, nargs=2)
@@ -82,8 +83,9 @@ M = Generic(
 
     # Connection probabilities
     CON_PROB_R=0.,
+    E_E_LOCAL_CON_PROB=0.8,
     E_I_CON_PROB=0.075,
-    I_E_CON_PROB=1.,
+    I_E_CON_PROB=0.8,
 
     # Weights
     W_E_I_R=args.w_ei[0],
@@ -104,19 +106,20 @@ M = Generic(
     RANDOM_SYN_ADD_ITERS_OTHER=[i for i in range(args.dropout_iter[0] + 1, 3001)],
 
     # Synaptic plasticity params
-    TAU_STDP_TRIP_EE=114e-3,
-    TAU_STDP_PAIR_EE_PLUS=16.8e-3,
-    TAU_STDP_PAIR_EE_MINUS=33.7e-3,
-    TAU_STDP_PAIR_EI=2e-3,
+    TAU_STDP_TRIP=40e-3,
+    TAU_STDP_PAIR_PLUS=16.8e-3,
+    TAU_STDP_PAIR_MINUS=33.7e-3,
 
-    A_TRIP_PLUS=6.5,
-    A_PAIR_MINUS=-7.1,
+    A_PAIR_PLUS=0,
+    A_PAIR_MINUS=-2 * 0.4,
+    A_TRIP_PLUS=5 * 0.4,
+    A_TRIP_MINUS=0,
 
-    ETA=0.025,
+    ETA=0.0005,
     ALPHA_1=1,
     ALPHA_2=0,
-    ALPHA_3=0,
-    ALPHA_4=0.6,
+    ALPHA_3=5,
+    ALPHA_4=-25,
     ALPHA_5=args.alpha_5[0],
     BETA_1=1,
     BETA_2=1e-5, #1e-5
@@ -124,13 +127,13 @@ M = Generic(
     HETERO_COMP_MECH=args.hetero_comp_mech[0],
     STDP_TYPE=args.stdp_type[0],
 
-    SETPOINT_MEASUREMENT_PERIOD=(850, 880),
+    SETPOINT_MEASUREMENT_PERIOD=(2950, 2999),
 )
 
 print(M.HETERO_COMP_MECH)
 print(args.cond[0])
 
-S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=100e-3, EPOCHS=5000)
+S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=110e-3, EPOCHS=6000)
 np.random.seed(S.RNG_SEED)
 
 M.SUMMED_W_E_E_R_MAX = M.W_E_E_R
@@ -140,16 +143,6 @@ if not args.cond[0].startswith('no_repl'):
 else:
     M.N_EXC_NEW = 0
 M.N_EXC = M.N_EXC_OLD + M.N_EXC_NEW
-M.CUT_IDX_STDP_TRIP = int(2 * M.TAU_STDP_TRIP_EE / S.DT)
-M.CUT_IDX_TAU_PAIR = int(2 * M.TAU_STDP_TRIP_EE / S.DT)
-M.KERNEL_TRIP_EE = np.exp(-1 * np.abs(np.arange(M.CUT_IDX_STDP_TRIP)) * S.DT / M.TAU_STDP_TRIP_EE).astype(float)
-M.KERNEL_PAIR_EE_PLUS = np.exp(-1 * np.abs(np.arange(M.CUT_IDX_TAU_PAIR)) * S.DT / M.TAU_STDP_PAIR_EE_PLUS).astype(float)
-M.KERNEL_PAIR_EE_MINUS = np.exp(-1 * np.abs(np.arange(M.CUT_IDX_TAU_PAIR)) * S.DT / M.TAU_STDP_PAIR_EE_MINUS).astype(float)
-M.CUT_IDX_TAU_PAIR_EI = int(2 * M.TAU_STDP_PAIR_EI / S.DT)
-kernel_base_ei = np.arange(2 * M.CUT_IDX_TAU_PAIR_EI + 1) - M.CUT_IDX_TAU_PAIR_EI
-M.KERNEL_PAIR_EI = np.exp(-1 * np.abs(kernel_base_ei) * S.DT / M.TAU_STDP_PAIR_EI).astype(float)
-M.KERNEL_PAIR_EI[M.CUT_IDX_TAU_PAIR_EI:] *= -1
-M.KERNEL_PAIR_EI *= 0
 M.DROPOUT_MAX_IDX = M.N_EXC
 
 ## SMLN
@@ -198,19 +191,25 @@ def gen_continuous_network(size, m):
     w = m.W_E_E_R / m.PROJECTION_NUM
 
     active_cell_mask = np.random.rand(size) > args.silent_fraction[0]
-    cont_idx_steps = np.random.rand(size)
-    cont_idx = np.array([np.sum(cont_idx_steps[:i]) for i in range(cont_idx_steps.shape[0])]) * (6 / size)
+    cont_idx_steps = np.random.rand(size) * 2
+    cont_idx = np.array([np.sum(cont_idx_steps[:i]) for i in range(cont_idx_steps.shape[0])])
 
     active_inactive_pairings = np.outer(active_cell_mask, active_cell_mask).astype(bool)
     cont_idx_dists = cont_idx.reshape(cont_idx.shape[0], 1) - cont_idx.reshape(1, cont_idx.shape[0])
 
-    def exp_if_pos(dist, tau):
-        return np.where(np.logical_and(dist >= 0, dist < 0.4), 1., 0) # np.exp(-dist/tau), 0)
+    def gen_local_ee_connectivity(dist, cutoff):
+        connected = np.logical_and(dist >= 0, dist < cutoff)
+        connected = np.logical_and(connected, np.random.rand(*dist.shape) < m.E_E_LOCAL_CON_PROB)
+        return np.where(connected, 1., 0) # np.exp(-dist/tau), 0)
 
     inactive_weights = np.concatenate([exp_if_under_val(0.075, (1, size), 0.5 * r * w) for r in np.random.rand(size)], axis=0)
 
-    sequence_weights = np.where(active_inactive_pairings, (0.7 + 0.3 * args.silent_fraction[0]) * w * exp_if_pos(cont_idx_dists, 0.15), inactive_weights)
+    cont_dist_cutoff = 25
+
+    sequence_weights = np.where(active_inactive_pairings, (0.7 + 0.3 * args.silent_fraction[0]) * w * gen_local_ee_connectivity(cont_idx_dists, cont_dist_cutoff), inactive_weights)
     sequence_delays = np.abs(cont_idx_dists)
+    sequence_delays = np.where(sequence_delays < cont_dist_cutoff, sequence_delays, cont_dist_cutoff * np.random.rand(size, size))
+
     np.fill_diagonal(sequence_delays, 0)
 
     weights = np.zeros((m.N_EXC, m.N_EXC))
@@ -222,18 +221,15 @@ def gen_continuous_network(size, m):
     all_active_inactive_pairings = np.zeros((m.N_EXC, m.N_EXC)).astype(bool)
     all_active_inactive_pairings[:size, :size] = active_inactive_pairings
 
+    undefined_delays = ~all_active_inactive_pairings
 
-    undefined_delays = np.logical_or(weights < m.W_E_E_R_MIN, ~all_active_inactive_pairings)
-
-    delays[undefined_delays] = 1/3 * np.random.rand(np.count_nonzero(undefined_delays))
-
+    delays[undefined_delays] = cont_dist_cutoff * np.random.rand(np.count_nonzero(undefined_delays))
     delays = delays / np.mean(delays[weights > m.W_E_E_R_MIN])
 
     return weights, delays, np.concatenate([active_cell_mask, np.zeros(m.N_EXC - size)]).astype(bool)
 
 ### RUN_TEST function
-def run_test(m, output_dir_name, n_show_only=None, add_noise=True, dropout={'E': 0, 'I': 0},
-    w_r_e=None, w_r_i=None, epochs=500, e_cell_pop_fr_setpoint=None):
+def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
     output_dir = f'./figures/{output_dir_name}'
     os.makedirs(output_dir)
@@ -265,14 +261,6 @@ def run_test(m, output_dir_name, n_show_only=None, add_noise=True, dropout={'E':
     }
 
     if w_r_e is None:
-        con_reach = 10
-        temperings = np.concatenate([[1], 0.05 * np.ones(con_reach - 1)])
-        ff_deg =  np.arange(con_reach) + 1
-        unit_funcs = []
-
-        for l_idx in range(con_reach):
-            unit_funcs.append(partial(ff_unit_func, m=m, p=1.)) # np.max(0.7 - l_idx * 0.15, 0)))
-
         w_e_e_r, ee_delays, active_cell_mask = gen_continuous_network(m.N_EXC_OLD, m)
         ee_delays = 3e-3 * ee_delays
         np.fill_diagonal(w_e_e_r, 0.)
@@ -317,9 +305,11 @@ def run_test(m, output_dir_name, n_show_only=None, add_noise=True, dropout={'E':
     gs = gridspec.GridSpec(1, 1)
     fig = plt.figure(figsize=(10 * scale, 10 * scale), tight_layout=True)
     axs = [fig.add_subplot(gs[0])]
-    axs[0].plot(delay_bins, delay_freqs)
+    axs[0].plot(delay_bins[1:], delay_freqs[1:])
     fig.savefig(os.path.join(output_dir, 'exc_delay_distribution.png'))
     plt.close(fig)
+
+    # (ee_delays / S.DT).astype(int)
 
     pairwise_spk_delays = np.block([
         [(ee_delays / S.DT).astype(int), np.ones((m.N_EXC, m.N_UVA)), int(0.5e-3 / S.DT) * np.ones((m.N_EXC, m.N_INH))],
@@ -389,9 +379,9 @@ def run_test(m, output_dir_name, n_show_only=None, add_noise=True, dropout={'E':
 
     batched_data_to_save = []
 
-    for i_e in range(epochs):
+    for i_e in range(S.EPOCHS):
 
-        progress = f'{i_e / epochs * 100}'
+        progress = f'{i_e / S.EPOCHS * 100}'
         progress = progress[: progress.find('.') + 2]
         print(f'{progress}% finished')
 
@@ -430,10 +420,7 @@ def run_test(m, output_dir_name, n_show_only=None, add_noise=True, dropout={'E':
         t = np.arange(0, S.T, S.DT)
 
         ## external currents
-        if add_noise:
-            i_ext = m.SGM_N/S.DT * np.random.randn(len(t), m.N_EXC + m.N_UVA + m.N_INH) + m.I_EXT_B
-        else:
-            i_ext = m.I_EXT_B * np.ones((len(t), m.N_EXC + m.N_UVA + m.N_INH))
+        i_ext = m.SGM_N/S.DT * np.random.randn(len(t), m.N_EXC + m.N_UVA + m.N_INH) + m.I_EXT_B
 
         ## inp spks
         spks_u_base = np.zeros((len(t), m.N_EXC_OLD), dtype=int)
@@ -472,6 +459,8 @@ def run_test(m, output_dir_name, n_show_only=None, add_noise=True, dropout={'E':
             t_r=t_r,
             e_s={'E': M.E_E, 'I': M.E_I, 'A': M.E_A},
             t_s={'E': M.T_E, 'I': M.T_E, 'A': M.T_A},
+            stdp_t_s={'TAU_STDP_PAIR_PLUS': M.TAU_STDP_PAIR_PLUS, 'TAU_STDP_PAIR_MINUS': M.TAU_STDP_PAIR_MINUS, 'TAU_STDP_TRIP_PLUS': M.TAU_STDP_TRIP, 'TAU_STDP_TRIP_MINUS': M.TAU_STDP_TRIP},
+            stdp_coefs={'A_PAIR_PLUS': M.A_PAIR_PLUS, 'A_PAIR_MINUS': M.A_PAIR_MINUS, 'A_TRIP_PLUS': M.A_TRIP_PLUS, 'A_TRIP_MINUS': M.A_TRIP_MINUS},
             w_r=w_r_copy,
             w_u=w_u,
             pairwise_spk_delays=pairwise_spk_delays,
@@ -514,12 +503,10 @@ def run_test(m, output_dir_name, n_show_only=None, add_noise=True, dropout={'E':
         axs[4].set_xlabel('Number of incoming synapses per cell')
         axs[4].set_ylabel('Counts')
 
-        cmap = cm.viridis
+        cmap = cm.viridis.copy()
         cmap.set_under(color='white')
 
         min_ee_weight = w_r_copy['E'][:m.N_EXC, :(m.N_EXC + m.N_UVA)].min()
-        print(min_ee_weight)
-        print(np.sum(w_r_copy['E'][:m.N_EXC, :(m.N_EXC + m.N_UVA)][ee_connectivity] < 0))
         graph_weight_matrix(w_r_copy['E'][:m.N_EXC, :(m.N_EXC + m.N_UVA)], 'w_e_e_r\n', ax=axs[5],
             v_min=min_ee_weight, v_max=m.W_E_E_R_MAX/5, cmap=cmap)
         graph_weight_matrix(w_r_copy['E'][m.N_EXC:, :m.N_EXC], 'w_e_i_r\n', ax=axs[6], v_max=2 * m.W_E_I_R, cmap=cmap)
@@ -572,110 +559,49 @@ def run_test(m, output_dir_name, n_show_only=None, add_noise=True, dropout={'E':
                 target_secreted_levels[M.N_EXC_OLD:M.N_EXC] = np.mean(target_secreted_levels[:M.N_EXC_OLD])
 
         if i_e > 0:
-            filtered_spks_for_e_cells = spks_for_e_cells
-            filtered_spks_received_for_e_cells = spks_received_for_e_cells
-            # shape of filtered spks received is (timesteps, receiving cells, emitting cells)
+            # added single cell regulation
+            e_diffs = np.maximum(np.sum(spks_for_e_cells > 0, axis=0) - 3, 0)
+            e_diffs_squared = np.power(e_diffs, 2)
 
-            # # STDP FOR E CELLS: put in pairwise STDP on filtered_spks_for_e_cells
-            stdp_burst_pair_e_e_plus = np.zeros([m.N_EXC , m.N_EXC])
-            stdp_burst_pair_e_e_minus = np.zeros([m.N_EXC , m.N_EXC])
+            fr_update_e = e_diffs_squared.reshape(e_diffs_squared.shape[0], 1) * np.ones((m.N_EXC, m.N_EXC)).astype(float)
+            firing_rate_homeo_depression = m.ALPHA_4 * fr_update_e
 
-            stdp_burst_pair_e_i_plus = np.zeros([m.N_INH , m.N_EXC])
-            stdp_burst_pair_e_i_minus = np.zeros([m.N_INH , m.N_EXC])
+            exc_ee_weights = w_r_copy['E'][:m.N_EXC, :m.N_EXC]
+            exc_ei_weights = w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
 
-            for i_t in range(spks_for_e_cells.shape[0]):
-                # find E spikes at current time
-                curr_spks_e = filtered_spks_for_e_cells[i_t, :]
-                curr_spks_i = spks_for_i_cells[i_t, :]
+            firing_rate_homeo_potentiation = m.ALPHA_3 if m.HETERO_COMP_MECH.startswith('firing_rate') else 0
 
-                ## find E spikes for stdp
-                stdp_start_ee = i_t - m.CUT_IDX_TAU_PAIR if i_t - m.CUT_IDX_TAU_PAIR > 0 else 0
-                stdp_end_ee = i_t + m.CUT_IDX_TAU_PAIR if i_t + m.CUT_IDX_TAU_PAIR < spks_for_e_cells.shape[0] else (spks_for_e_cells.shape[0] - 1)
+            w_r_copy['E'][:m.N_EXC, :m.N_EXC] += (m.ETA * (m.ALPHA_3 + firing_rate_homeo_depression) * exc_ee_weights)
 
-                trimmed_kernel_ee_plus = np.flip(m.KERNEL_PAIR_EE_PLUS[:(i_t - stdp_start_ee)])
-                trimmed_kernel_ee_minus = m.KERNEL_PAIR_EE_MINUS[:(stdp_end_ee - i_t)]
 
-                for curr_spk_e in curr_spks_e.nonzero()[0]:
-                    sparse_spks_received_e_plus = csc_matrix(filtered_spks_received_for_e_cells[stdp_start_ee:i_t, curr_spk_e, :])
-                    sparse_spks_received_e_minus = csc_matrix(filtered_spks_received_for_e_cells[i_t:stdp_end_ee, curr_spk_e, :])
+            ee_update_plus = rsp.pair_update_plus[:m.N_EXC, :m.N_EXC] + rsp.trip_update_plus[:m.N_EXC, :m.N_EXC]
+            ee_update_minus = rsp.pair_update_minus[:m.N_EXC, :m.N_EXC] + rsp.trip_update_minus[:m.N_EXC, :m.N_EXC]
 
-                    stdp_burst_pair_e_e_outer_plus = sparse_spks_received_e_plus.T.multiply(trimmed_kernel_ee_plus).toarray()
-                    stdp_burst_pair_e_e_minus[curr_spk_e, :] += sparse_spks_received_e_minus.T.dot(trimmed_kernel_ee_minus)
+            w_r_copy['E'][:m.N_EXC, :m.N_EXC] += m.ETA * ((m.W_E_E_R_MAX - exc_ee_weights) * ee_update_plus + exc_ee_weights * ee_update_minus)
+            
 
-                    for k_t in trip_spk_hist[curr_spk_e]:
-                        stdp_burst_pair_e_e_plus[curr_spk_e, :] += stdp_burst_pair_e_e_outer_plus[:, -(i_t - k_t):].sum(axis=1) * m.KERNEL_TRIP_EE[i_t - k_t]
+            ei_update_plus = rsp.pair_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
+            ei_update_minus = 0 * rsp.pair_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
 
-                    trip_spk_hist[curr_spk_e].append(i_t)
-
-                # print(curr_spks_i)
-                for curr_spk_i in curr_spks_i.nonzero()[0]:
-                    sparse_spks_received_i_plus = csc_matrix(spks_received_for_i_cells[stdp_start_ee:i_t, curr_spk_i, :])
-                    sparse_spks_received_i_minus = csc_matrix(spks_received_for_i_cells[i_t:stdp_end_ee, curr_spk_i, :])
-
-                    stdp_burst_pair_e_i_outer_plus = sparse_spks_received_i_plus.T.multiply(trimmed_kernel_ee_plus).toarray()
-                    stdp_burst_pair_e_i_minus[curr_spk_i, :] += sparse_spks_received_i_minus.T.dot(trimmed_kernel_ee_minus)
-
-                    for k_t in trip_spk_hist[curr_spk_i + m.N_EXC]:
-                        stdp_burst_pair_e_i_plus[curr_spk_i, :] += stdp_burst_pair_e_i_outer_plus[:, -(i_t - k_t):].sum(axis=1) * m.KERNEL_TRIP_EE[i_t - k_t]
-
-                    trip_spk_hist[curr_spk_i + m.N_EXC].append(i_t)
-
-            if m.STDP_TYPE == 'mult':
-                w_r_copy['E'][:m.N_EXC, :m.N_EXC] += (m.ETA * m.BETA_1 * m.A_PAIR_MINUS * stdp_burst_pair_e_e_minus * w_r_copy['E'][:(m.N_EXC), :(m.N_EXC + m.N_UVA)])
-                w_r_copy['E'][:m.N_EXC, :m.N_EXC] += (m.ETA * m.BETA_1 * m.A_TRIP_PLUS * stdp_burst_pair_e_e_plus * w_r_copy['E'][:(m.N_EXC), :(m.N_EXC + m.N_UVA)])
-            else:
-                w_r_copy['E'][:m.N_EXC, :m.N_EXC] += (m.ETA * m.BETA_2 * m.A_PAIR_MINUS * stdp_burst_pair_e_e_minus * w_r_copy['E'][:(m.N_EXC), :(m.N_EXC + m.N_UVA)])
-                w_r_copy['E'][:m.N_EXC, :m.N_EXC] += (m.ETA * m.BETA_2 * m.A_TRIP_PLUS * stdp_burst_pair_e_e_plus * (m.W_E_E_R_MAX * ee_connectivity - w_r_copy['E'][:(m.N_EXC), :(m.N_EXC + m.N_UVA)]))
-
-                w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += (250 * m.ETA * m.BETA_2 * m.A_PAIR_MINUS * stdp_burst_pair_e_i_minus * w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC])
-                w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += (250 * m.ETA * m.BETA_2 * m.A_TRIP_PLUS * stdp_burst_pair_e_i_plus * (m.W_E_I_R_MAX * ei_connectivity - w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]))
-
-            stdp_weight_change = m.A_TRIP_PLUS * stdp_burst_pair_e_e_plus * (m.W_E_E_R_MAX * ee_connectivity - w_r_copy['E'][:(m.N_EXC), :(m.N_EXC + m.N_UVA)])
-            stdp_weight_change += m.A_PAIR_MINUS * stdp_burst_pair_e_e_minus * w_r_copy['E'][:(m.N_EXC), :(m.N_EXC + m.N_UVA)]
-
-            graph_weight_matrix(stdp_weight_change, 'stdp weight change\n', ax=axs[7], v_min=stdp_weight_change.min(), cmap='gist_stern')
+            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 5 * m.ETA * ((m.W_E_I_R_MAX - exc_ei_weights) * ei_update_plus + exc_ei_weights * ei_update_minus)
 
             # HETEROSYNAPTIC COMPETITION RULES
 
-            ## Soft summed weight bound
-            if m.HETERO_COMP_MECH == 'summed_weight':
-                excess_weight = (w_r_copy['E'][:m.N_EXC, :m.N_EXC].sum(axis=1) - m.SUMMED_W_E_E_R_MAX)
-                excess_weight = np.where(excess_weight > 0, excess_weight, 0)
-                excess_weight = excess_weight.reshape(excess_weight.shape[0], 1)
-                w_r_copy['E'][:m.N_EXC, :m.N_EXC] -= m.ETA * m.ALPHA_1 * excess_weight * ee_connectivity
-
-            ## Potentiation soft bound
-            if m.HETERO_COMP_MECH == 'potentiation_limit':
-                w_r_copy['E'][:m.N_EXC, :m.N_EXC] -= m.ETA * m.ALPHA_2 * np.where(stdp_ee_potentiation, w_r_copy['E'][:m.N_EXC, :m.N_EXC], 0)
-
-            ## Axon remodeling
-            if m.HETERO_COMP_MECH == 'axon_remodeling':
-                for exc_idx in range(m.N_EXC):
-                    w_r_ee_row = w_r_copy['E'][exc_idx, :m.N_EXC]
-                    super_synapse_mask = (w_r_ee_row >= m.SUPER_SYNAPSE_SIZE)
-                    super_synapse_indices = np.nonzero(super_synapse_mask)
-                    super_synapse_vals = w_r_ee_row[super_synapse_indices]
-                    if len(super_synapse_indices) >= 10:
-                        w_r_copy['E'][exc_idx, ~super_synapse_mask] = 0
-                        ee_connectivity[exc_idx, ~super_synapse_mask] = 0
-                        if len(super_synapse_indices) > 10:
-                            w_r_copy['E'][exc_idx, super_synapse_indices[np.argsort(super_synapse_vals)[:-10]]] = 0
-                            ee_connectivity[exc_idx, super_synapse_indices[np.argsort(super_synapse_vals)[:-10]]] = 0
-
             ## Firing rate bound
-            if m.HETERO_COMP_MECH.startswith('firing_rate'):
-                fr_update_e = 0
+            # if m.HETERO_COMP_MECH.startswith('firing_rate'):
+            #     pass
+                # fr_update_e = 0
 
-                e_diffs = e_cell_fr_setpoints - np.sum(spks_for_e_cells > 0, axis=0)
+                # e_diffs = e_cell_fr_setpoints - np.sum(spks_for_e_cells > 0, axis=0)
 
-                if m.HETERO_COMP_MECH == 'firing_rate_downward':
-                    if i_e > m.DROPOUT_ITER - 10:
-                        e_diffs[e_diffs > 0] = 0
+                # if m.HETERO_COMP_MECH == 'firing_rate_downward':
+                #     if i_e > m.DROPOUT_ITER - 10:
+                #         e_diffs[e_diffs > 0] = 0
 
-                fr_update_e = e_diffs.reshape(e_diffs.shape[0], 1) * np.ones((m.N_EXC, m.N_EXC + m.N_UVA)).astype(float)
-                firing_rate_potentiation = m.ETA * m.ALPHA_4 * fr_update_e
+                # fr_update_e = e_diffs.reshape(e_diffs.shape[0], 1) * np.ones((m.N_EXC, m.N_EXC + m.N_UVA)).astype(float)
+                # firing_rate_potentiation = m.ETA * m.ALPHA_4 * fr_update_e
 
-                w_r_copy['E'][:m.N_EXC, :(m.N_EXC + m.N_UVA)] += (firing_rate_potentiation * w_r_copy['E'][:(m.N_EXC), :(m.N_EXC + m.N_UVA)])
+                # w_r_copy['E'][:m.N_EXC, :(m.N_EXC + m.N_UVA)] += (firing_rate_potentiation * w_r_copy['E'][:(m.N_EXC), :(m.N_EXC + m.N_UVA)])
 
             if m.HETERO_COMP_MECH.startswith('secreted_regulation'):
 
@@ -700,27 +626,11 @@ def run_test(m, output_dir_name, n_show_only=None, add_noise=True, dropout={'E':
                     sigmoid_transform_e_diffs = sigmoid_tranform(secreted_diffs / 100)
 
                     w_update = sigmoid_transform_e_diffs.reshape(sigmoid_transform_e_diffs.shape[0], 1) * np.ones((m.N_EXC, m.N_EXC + m.N_UVA)).astype(float)
-                    w_r_copy['E'][:m.N_EXC, :(m.N_EXC + m.N_UVA)] += (m.ETA * m.ALPHA_5 * w_update * w_r_copy['E'][:(m.N_EXC), :(m.N_EXC + m.N_UVA)])
-
-                # added single cell regulation
-                e_diffs = e_cell_fr_setpoints - np.sum(spks_for_e_cells > 0, axis=0)
-
-                if i_e >= m.SETPOINT_MEASUREMENT_PERIOD[0]:
-                    e_diffs[e_diffs > 0] = 0
-                else:
-                    e_diffs[np.isnan(initial_first_spike_times)] = 0
-
-                e_diffs = np.power(e_diffs, 2) * np.where(e_diffs > 0, 1, -1)
-
-                fr_update_e = e_diffs.reshape(e_diffs.shape[0], 1) * np.ones((m.N_EXC, m.N_EXC + m.N_UVA)).astype(float)
-                firing_rate_potentiation = m.ETA * m.ALPHA_4 * fr_update_e
-
-                w_r_copy['E'][:m.N_EXC, :(m.N_EXC + m.N_UVA)] += (firing_rate_potentiation * w_r_copy['E'][:(m.N_EXC), :(m.N_EXC + m.N_UVA)])
+                    w_r_copy['E'][:m.N_EXC, :m.N_EXC] += (m.ETA * m.ALPHA_5 * w_update * exc_ee_weights)
 
             w_e_e_hard_bound = m.W_E_E_R_MAX
-            
-            w_r_copy['E'][:m.N_EXC, :(m.N_EXC + m.N_UVA)][np.logical_and((w_r_copy['E'][:m.N_EXC, :(m.N_EXC + m.N_UVA)] < m.W_E_E_R_MIN), ee_connectivity)] = m.W_E_E_R_MIN
-            w_r_copy['E'][:m.N_EXC, :(m.N_EXC)][w_r_copy['E'][:m.N_EXC, (m.N_EXC)] > m.W_E_E_R_MAX] = m.W_E_E_R_MAX
+            w_r_copy['E'][:m.N_EXC, :m.N_EXC][np.logical_and((w_r_copy['E'][:m.N_EXC, :m.N_EXC] < m.W_E_E_R_MIN), ee_connectivity)] = m.W_E_E_R_MIN
+            w_r_copy['E'][:m.N_EXC, :m.N_EXC][w_r_copy['E'][:m.N_EXC, m.N_EXC] > m.W_E_E_R_MAX] = m.W_E_E_R_MAX
 
             # output weight bound
             i_cell_summed_inputs = w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC].sum(axis=1)
@@ -733,24 +643,6 @@ def run_test(m, output_dir_name, n_show_only=None, add_noise=True, dropout={'E':
             # w_r_copy['I'][w_r_copy['I'] > m.W_I_E_R_MAX] = m.W_I_E_R_MAX
 
         if i_e % 1 == 0:
-
-            mean_initial_first_spk_time = np.nanmean(first_spk_times[400:410])
-            mean_final_first_spk_time = np.nanmean(first_spk_times[800:810])
-            prop_speed = (80 - 40) / (mean_final_first_spk_time - mean_initial_first_spk_time)
-
-            spiking_idxs = np.nonzero(first_spk_times[400:810])[0]
-
-
-            spks_for_spiking_idxs = spks_for_e_cells[:, spiking_idxs]
-
-            temporal_widths = []
-
-            for k in range(spks_for_spiking_idxs.shape[1]):
-                temporal_widths.append(np.std(S.DT * np.nonzero(spks_for_spiking_idxs[:, k])[0]))
-
-            avg_temporal_width = np.mean(temporal_widths)
-            print(avg_temporal_width)
-
             base_data_to_save = {
                 'w_e_e': m.W_E_E_R,
                 'w_e_i': m.W_E_I_R,
@@ -778,15 +670,17 @@ def run_test(m, output_dir_name, n_show_only=None, add_noise=True, dropout={'E':
             #     base_data_to_save.update(update_obj)
             save_freq = 100
             if i_e % save_freq == (save_freq - 1):
-                sio.savemat(robustness_output_dir + '/' + f'title_{title}_idx_{zero_pad(i_e, 4)}', {'data': batched_data_to_save})
+                sio.savemat(robustness_output_dir + '/' + f'title_{args.title[0]}_idx_{zero_pad(i_e, 4)}', {'data': batched_data_to_save})
                 batched_data_to_save = []
 
-        # fig.savefig(f'{output_dir}/{zero_pad(i_e, 4)}.png')
+        fig.savefig(f'{output_dir}/{zero_pad(i_e, 4)}.png')
 
         end = time.time()
         secs_per_cycle = f'{end - start}'
         secs_per_cycle = secs_per_cycle[:secs_per_cycle.find('.') + 2]
         print(f'{secs_per_cycle} s')
+
+        print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / np.power(10, 9))
 
         plt.close('all')
 
@@ -798,12 +692,6 @@ def run_test(m, output_dir_name, n_show_only=None, add_noise=True, dropout={'E':
         #         print(stat)
 
 
-
-def quick_plot(m, run_title='', w_r_e=None, w_r_i=None, n_show_only=None, add_noise=True, dropout={'E': 0, 'I': 0}, e_cell_pop_fr_setpoint=None):
-    output_dir_name = f'{run_title}_{time_stamp(s=True)}:{zero_pad(int(np.random.rand() * 9999), 4)}'
-
-    run_test(m, output_dir_name=output_dir_name, n_show_only=n_show_only, add_noise=add_noise, dropout=dropout,
-                        w_r_e=w_r_e, w_r_i=w_r_i, epochs=S.EPOCHS, e_cell_pop_fr_setpoint=e_cell_pop_fr_setpoint)
 
 def process_single_activation(exc_raster, m):
     # extract first spikes
@@ -820,21 +708,23 @@ def load_previous_run(direc, num):
     loaded = sio.loadmat(os.path.join(direc, file))
     return loaded
 
-def clip(f, n=1):
-    f_str = str(f)
-    f_str = f_str[:(f_str.find('.') + 1 + n)]
-    return f_str
 
-title = f'{args.title[0]}'
-
+### Simulation setup
 w_r_e = None
 w_r_i = None
 
+# Load previous saved weight matrices if applicable
 if args.load_run is not None:
     loaded = load_previous_run(os.path.join('./robustness', args.load_run[0]), int(args.load_run[1]))
     w_r_e = np.array(loaded['w_r_e'].todense())
     w_r_i = np.array(loaded['w_r_i'].todense())
 
-quick_plot(M, run_title=title, dropout={'E': M.DROPOUT_SEV, 'I': 0}, w_r_e=w_r_e, w_r_i=w_r_i)
+# Define the output directory name
+output_dir_name = f'{args.title[0]}_{time_stamp(s=True)}:{zero_pad(int(np.random.rand() * 9999), 4)}'
+# Specify which populations to drop out and at what probability
+dropout = {'E': M.DROPOUT_SEV, 'I': 0}
+
+# Begin the simulation
+run(M, output_dir_name=output_dir_name, dropout=dropout, w_r_e=w_r_e, w_r_i=w_r_i)
 
 
