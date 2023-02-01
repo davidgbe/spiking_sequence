@@ -83,6 +83,7 @@ params['DROP_SEV'] = [str(0.5)]
 params['COMP_MECH'] = ['firing_rate', 'secreted_regulation']
 params['CONDITION'] = ['no_repl_no_syn']
 params['PER_SILENT'] = [str(0), str(0.4)]
+params['A5'] = [str(0.3)]
 
 n_seeds = len(params['SEED'])
 
