@@ -673,6 +673,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                 sio.savemat(robustness_output_dir + '/' + f'title_{args.title[0]}_idx_{zero_pad(i_e, 4)}', {'data': batched_data_to_save})
                 batched_data_to_save = []
 
+            if i_e % 20 == 0:
                 fig.savefig(f'{output_dir}/{zero_pad(i_e, 4)}.png')
 
         end = time.time()
