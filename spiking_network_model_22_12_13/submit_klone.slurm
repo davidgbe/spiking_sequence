@@ -18,9 +18,7 @@ module load foster/python/miniconda/3.8
 CURRDIR=$(pwd)
 echo $CURRDIR
 ## Commands to run
-cd /mmfs1/gscratch/labfairhall/davidgbe
-source davidgbe-env/bin/activate
-cd $CURRDIR
+source python-env/bin/activate
 python run.py --title secreted_TITLE --rng_seed SEED --hetero_comp_mech COMP_MECH --stdp_type w_minus --dropout_per DROP_SEV  --dropout_iter 2000 --cond CONDITION --w_ee W_E_E --w_ei W_E_I --w_ie W_I_E --silent_fraction PER_SILENT --alpha_5 A5 &
 wait
 zip -r -qq figures.zip figures
