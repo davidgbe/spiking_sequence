@@ -38,7 +38,10 @@ def bin_occurrences(occurrences, min_val=0, max_val=None, bin_size=1):
     scaled_occurrences = ((occurrences - min_val) / bin_size).astype(int)
 
     if max_val is None:
-        max_val = occurrences.max()
+        if len(occurrences) == 0:
+            max_val = 1
+        else:
+            max_val = occurrences.max()
 
     max_idx = int(np.ceil((max_val - min_val) / bin_size)) + 1
 
@@ -82,7 +85,7 @@ def dropout_on_mat(mat, percent, min_idx=0, max_idx=None):
 
     num_idxs_in_bounds = max_idx - min_idx
 
-    survival_indices = rand_n_ones_in_vec_len_l(int((1. - percent) * num_idxs_in_bounds), num_idxs_in_bounds)
+    survival_indices = np.where(np.random.rand(num_idxs_in_bounds) > percent, 1, 0)
     survival_indices = np.concatenate([np.ones(min_idx), survival_indices, np.ones(mat.shape[1] - max_idx)])
 
     m = copy(mat)

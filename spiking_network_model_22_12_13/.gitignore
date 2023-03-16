@@ -1,2 +1,6 @@
 figures/**/*
 robustness/**/*
+**/__pycache__/**/*
+__pycache__/**/*
+python-env/
+.ipynb_checkpoints/**/*

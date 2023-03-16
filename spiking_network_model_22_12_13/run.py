@@ -118,7 +118,7 @@ M = Generic(
     ETA=0.0005,
     ALPHA_1=1,
     ALPHA_2=0,
-    ALPHA_3=5,
+    ALPHA_3=50,
     ALPHA_4=-25,
     ALPHA_5=args.alpha_5[0],
     BETA_1=1,
@@ -127,13 +127,13 @@ M = Generic(
     HETERO_COMP_MECH=args.hetero_comp_mech[0],
     STDP_TYPE=args.stdp_type[0],
 
-    SETPOINT_MEASUREMENT_PERIOD=(2950, 2999),
+    SETPOINT_MEASUREMENT_PERIOD=(1000, 1100),
 )
 
 print(M.HETERO_COMP_MECH)
 print(args.cond[0])
 
-S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=110e-3, EPOCHS=6000)
+S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=110e-3, EPOCHS=7000)
 np.random.seed(S.RNG_SEED)
 
 M.SUMMED_W_E_E_R_MAX = M.W_E_E_R
@@ -204,7 +204,7 @@ def gen_continuous_network(size, m):
 
     inactive_weights = np.concatenate([exp_if_under_val(0.075, (1, size), 0.5 * r * w) for r in np.random.rand(size)], axis=0)
 
-    cont_dist_cutoff = 25
+    cont_dist_cutoff = 25 #25
 
     sequence_weights = np.where(active_inactive_pairings, (0.7 + 0.3 * args.silent_fraction[0]) * w * gen_local_ee_connectivity(cont_idx_dists, cont_dist_cutoff), inactive_weights)
     sequence_delays = np.abs(cont_idx_dists)
@@ -379,6 +379,9 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
     batched_data_to_save = []
 
+    n_dropout_iters = 5
+    p_dropout_for_i_e = 1 - np.power((1 - dropout['E']), 1/n_dropout_iters)
+
     for i_e in range(S.EPOCHS):
 
         progress = f'{i_e / S.EPOCHS * 100}'
@@ -387,12 +390,17 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
         start = time.time()
 
-        if i_e == m.DROPOUT_ITER:
-            w_r_copy['E'][:(m.N_EXC + m.N_UVA + m.N_INH), :m.N_EXC_OLD], surviving_cell_mask = dropout_on_mat(w_r_copy['E'][:(m.N_EXC + m.N_UVA + m.N_INH), :m.N_EXC_OLD], dropout['E'])
-            surviving_cell_mask = np.concatenate([surviving_cell_mask, np.ones(m.N_EXC_NEW)])
-            surviving_cell_mask = surviving_cell_mask.astype(bool)
-            ee_connectivity = np.where(w_r_copy['E'][:(m.N_EXC), :(m.N_EXC + m.N_UVA)] > 0, 1, 0)
-            ei_connectivity = np.where(w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :(m.N_EXC + m.N_UVA)] > 0, 1, 0)
+        if i_e >= m.DROPOUT_ITER and i_e < m.DROPOUT_ITER + n_dropout_iters:
+            w_r_copy['E'][:(m.N_EXC + m.N_UVA + m.N_INH), :m.N_EXC_OLD], surviving_cell_mask_new = dropout_on_mat(w_r_copy['E'][:(m.N_EXC + m.N_UVA + m.N_INH), :m.N_EXC_OLD], p_dropout_for_i_e)
+            surviving_cell_mask_new = np.concatenate([surviving_cell_mask_new, np.ones(m.N_EXC_NEW)])
+            surviving_cell_mask_new = surviving_cell_mask_new.astype(bool)
+            if surviving_cell_mask is not None:
+                surviving_cell_mask = np.logical_and(surviving_cell_mask, surviving_cell_mask_new)
+            else:
+                surviving_cell_mask = surviving_cell_mask_new
+            # print(surviving_cell_mask)
+            ee_connectivity = np.where(w_r_copy['E'][:(m.N_EXC), :m.N_EXC] > 0, 1, 0)
+            ei_connectivity = np.where(w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] > 0, 1, 0)
 
         # growth_prob = 0.0005
         # if not args.cond[0].startswith('no_repl_no_syn'):
@@ -577,31 +585,15 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             ee_update_plus = rsp.pair_update_plus[:m.N_EXC, :m.N_EXC] + rsp.trip_update_plus[:m.N_EXC, :m.N_EXC]
             ee_update_minus = rsp.pair_update_minus[:m.N_EXC, :m.N_EXC] + rsp.trip_update_minus[:m.N_EXC, :m.N_EXC]
 
-            w_r_copy['E'][:m.N_EXC, :m.N_EXC] += m.ETA * ((m.W_E_E_R_MAX - exc_ee_weights) * ee_update_plus + exc_ee_weights * ee_update_minus)
+            w_r_copy['E'][:m.N_EXC, :m.N_EXC] += m.ETA * ((m.W_E_E_R_MAX * ee_connectivity - exc_ee_weights) * ee_update_plus + exc_ee_weights * ee_update_minus)
             
 
             ei_update_plus = rsp.pair_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
             ei_update_minus = 0 * rsp.pair_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
 
-            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 5 * m.ETA * ((m.W_E_I_R_MAX - exc_ei_weights) * ei_update_plus + exc_ei_weights * ei_update_minus)
+            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 5 * m.ETA * ((m.W_E_I_R_MAX * ei_connectivity - exc_ei_weights) * ei_update_plus + exc_ei_weights * ei_update_minus)
 
             # HETEROSYNAPTIC COMPETITION RULES
-
-            ## Firing rate bound
-            # if m.HETERO_COMP_MECH.startswith('firing_rate'):
-            #     pass
-                # fr_update_e = 0
-
-                # e_diffs = e_cell_fr_setpoints - np.sum(spks_for_e_cells > 0, axis=0)
-
-                # if m.HETERO_COMP_MECH == 'firing_rate_downward':
-                #     if i_e > m.DROPOUT_ITER - 10:
-                #         e_diffs[e_diffs > 0] = 0
-
-                # fr_update_e = e_diffs.reshape(e_diffs.shape[0], 1) * np.ones((m.N_EXC, m.N_EXC + m.N_UVA)).astype(float)
-                # firing_rate_potentiation = m.ETA * m.ALPHA_4 * fr_update_e
-
-                # w_r_copy['E'][:m.N_EXC, :(m.N_EXC + m.N_UVA)] += (firing_rate_potentiation * w_r_copy['E'][:(m.N_EXC), :(m.N_EXC + m.N_UVA)])
 
             if m.HETERO_COMP_MECH.startswith('secreted_regulation'):
 
@@ -630,6 +622,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
             w_e_e_hard_bound = m.W_E_E_R_MAX
             w_r_copy['E'][:m.N_EXC, :m.N_EXC][np.logical_and((w_r_copy['E'][:m.N_EXC, :m.N_EXC] < m.W_E_E_R_MIN), ee_connectivity)] = m.W_E_E_R_MIN
+
             w_r_copy['E'][:m.N_EXC, :m.N_EXC][w_r_copy['E'][:m.N_EXC, m.N_EXC] > m.W_E_E_R_MAX] = m.W_E_E_R_MAX
 
             # output weight bound
@@ -662,18 +655,12 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
             batched_data_to_save.append(base_data_to_save)
 
-            # if i_e % 10 == 0:
-            #     update_obj = {
-            #         'w_r_e': rsp.ntwk.w_r['E'],
-            #         'w_r_i': rsp.ntwk.w_r['I'],
-            #     }
-            #     base_data_to_save.update(update_obj)
             save_freq = 100
             if i_e % save_freq == (save_freq - 1):
                 sio.savemat(robustness_output_dir + '/' + f'title_{args.title[0]}_idx_{zero_pad(i_e, 4)}', {'data': batched_data_to_save})
                 batched_data_to_save = []
 
-            if i_e % 20 == 0:
+            if i_e % 100 == 0:
                 fig.savefig(f'{output_dir}/{zero_pad(i_e, 4)}.png')
 
         end = time.time()
