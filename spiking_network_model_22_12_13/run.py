@@ -579,7 +579,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
             firing_rate_homeo_potentiation = m.ALPHA_3 if m.HETERO_COMP_MECH.startswith('firing_rate') else 0
 
-            w_r_copy['E'][:m.N_EXC, :m.N_EXC] += (m.ETA * (m.ALPHA_3 + firing_rate_homeo_depression) * exc_ee_weights)
+            w_r_copy['E'][:m.N_EXC, :m.N_EXC] += (m.ETA * (firing_rate_homeo_potentiation + firing_rate_homeo_depression) * exc_ee_weights)
 
 
             ee_update_plus = rsp.pair_update_plus[:m.N_EXC, :m.N_EXC] + rsp.trip_update_plus[:m.N_EXC, :m.N_EXC]
