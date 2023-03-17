@@ -3,13 +3,13 @@
 ## Presets
 #SBATCH --job-name=syn_param
 
-#SBATCH -p compute
-#SBATCH -A stf
+#SBATCH -p compute-bigmem
+#SBATCH -A labfairhall
 
 #SBATCH --nodes=1
 #SBATCH --time=10:00:00
-#SBATCH --ntasks=20
-#SBATCH --mem=100G
+#SBATCH --ntasks=10
+#SBATCH --mem=25G
 
 #SBATCH --chdir=.
 

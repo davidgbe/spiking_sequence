@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
 import os
+import sys
 import scipy.io as sio
 from scipy.sparse import csc_matrix, csr_matrix, kron
 from functools import partial
@@ -368,7 +369,6 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
     w_r_copy = copy(w_r)
 
     # tracemalloc.start()
-
     # snapshot = None
     # last_snapshot = tracemalloc.take_snapshot()
 
@@ -668,9 +668,9 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
         end = time.time()
         secs_per_cycle = f'{end - start}'
         secs_per_cycle = secs_per_cycle[:secs_per_cycle.find('.') + 2]
-        print(f'{secs_per_cycle} s')
+        print(f'{secs_per_cycle} s', file=sys.stderr)
 
-        print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / np.power(10, 9))
+        print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / np.power(10, 9), file=sys.stderr)
 
         plt.close('all')
 
