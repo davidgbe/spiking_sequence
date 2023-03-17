@@ -237,9 +237,6 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
     robustness_output_dir = f'./robustness/{output_dir_name}'
     os.makedirs(robustness_output_dir)
-
-    sampled_cell_output_dir = f'./sampled_cell_rasters/{output_dir_name}'
-    os.makedirs(sampled_cell_output_dir)
     
     w_u_proj = np.diag(np.ones(m.N_DRIVING_CELLS)) * m.W_U_E * 0.5
     w_u_uva = np.diag(np.ones(m.N_EXC_OLD - m.N_DRIVING_CELLS)) * m.W_U_E * 0
@@ -665,12 +662,19 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             if i_e % 100 == 0:
                 fig.savefig(f'{output_dir}/{zero_pad(i_e, 4)}.png')
 
+        log_file = open(os.path.join(robustness_output_dir, 'log'), 'a+')
+
         end = time.time()
         secs_per_cycle = f'{end - start}'
         secs_per_cycle = secs_per_cycle[:secs_per_cycle.find('.') + 2]
-        print(f'{secs_per_cycle} s', file=sys.stderr)
+        print(f'{secs_per_cycle} s')
+        print(f'{secs_per_cycle} s', file=log_file)
 
-        print(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / np.power(10, 9), file=sys.stderr)
+        usage_in_gb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / np.power(10, 9)
+        print(usage_in_gb)
+        print(f'{usage_in_gb}', file=log_file)
+
+        log_file.close()
 
         plt.close('all')
 
