@@ -5,7 +5,7 @@ import functools
 
 base_path = os.curdir
 scripts = [
-	'submit.slurm',
+	'submit_klone.slurm',
 ]
 
 def replace_all(line, repl_dict):
@@ -72,19 +72,18 @@ def pad_zeros(to_pad, length):
 		padded = '0' + padded
 	return padded
 
-batch_size = 6
+batch_size = 1
 
 params = OrderedDict()
-params['SEED'] = [str(i) for i in range(2000, 2025)]
+params['SEED'] = [str(i) for i in range(2000, 2005)]
 params['W_E_E'] = [str(1.2e-3)]
 params['W_E_I'] = [str(7e-5)]
 params['W_I_E'] = [str(4e-5)]
 params['DROP_SEV'] = [str(0.5)]
-params['COMP_MECH'] = ['firing_rate']
+params['COMP_MECH'] = ['secreted_regulation']
 params['CONDITION'] = ['no_repl_no_syn']
-params['PER_SILENT'] = [str(0), str(0.5)]
-params['A5'] = [str(0.5)]
-
+params['PER_SILENT'] = [str(0), str(0.4)]
+params['A5'] = [str(0.3)]
 
 n_seeds = len(params['SEED'])
 
