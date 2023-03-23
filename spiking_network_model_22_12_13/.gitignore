@@ -4,3 +4,7 @@ robustness/**/*
 __pycache__/**/*
 python-env/
 .ipynb_checkpoints/**/*
+slurm*
+submit_klone_*
+*.zip
+.ipynb_checkpoints
