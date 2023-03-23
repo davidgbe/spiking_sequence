@@ -93,7 +93,7 @@ M = Generic(
     W_I_E_R=args.w_ie[0],
     W_A=0,
     W_E_E_R=args.w_ee[0],
-    W_E_E_R_MIN=1e-8,
+    W_E_R_MIN=1e-8,
     W_E_E_R_MAX=10e-4,
     W_E_I_R_MAX=4 * args.w_ei[0],
     SUPER_SYNAPSE_SIZE=1.5e-3,
@@ -162,7 +162,7 @@ def compute_secreted_levels(spks_for_e_cells, exc_locs, m, surviving_cell_mask=N
 def ff_unit_func(m, p):
     w = m.W_E_E_R / m.PROJECTION_NUM
     connectivity = gaussian_if_under_val(p, (m.PROJECTION_NUM, m.PROJECTION_NUM), w, 0.3 * w)
-    connectivity[(connectivity != 0) & (connectivity < m.W_E_E_R_MIN)] = 0
+    connectivity[(connectivity != 0) & (connectivity < m.W_E_R_MIN)] = 0
     return connectivity
 
 # def generate_ff_chain(size, unit_size, unit_funcs, ff_deg=[0, 1], tempering=[1., 1.]):
@@ -223,7 +223,7 @@ def gen_continuous_network(size, m):
     undefined_delays = ~all_active_inactive_pairings
 
     delays[undefined_delays] = cont_dist_cutoff * np.random.rand(np.count_nonzero(undefined_delays))
-    delays = delays / np.mean(delays[weights > m.W_E_E_R_MIN])
+    delays = delays / np.mean(delays[weights > m.W_E_R_MIN])
 
     return weights, delays, np.concatenate([active_cell_mask, np.zeros(m.N_EXC - size)]).astype(bool)
 
@@ -615,10 +615,11 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                     w_update = sigmoid_transform_e_diffs.reshape(sigmoid_transform_e_diffs.shape[0], 1) * np.ones((m.N_EXC, m.N_EXC + m.N_UVA)).astype(float)
                     w_r_copy['E'][:m.N_EXC, :m.N_EXC] += (m.ETA * m.ALPHA_5 * w_update * exc_ee_weights)
 
-            w_e_e_hard_bound = m.W_E_E_R_MAX
-            w_r_copy['E'][:m.N_EXC, :m.N_EXC][np.logical_and((w_r_copy['E'][:m.N_EXC, :m.N_EXC] < m.W_E_E_R_MIN), ee_connectivity)] = m.W_E_E_R_MIN
+            w_r_copy['E'][:m.N_EXC, :m.N_EXC][np.logical_and((w_r_copy['E'][:m.N_EXC, :m.N_EXC] < m.W_E_R_MIN), ee_connectivity)] = m.W_E_R_MIN
+            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC][np.logical_and((w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] < m.W_E_R_MIN), ei_connectivity)] = m.W_E_R_MIN
 
             w_r_copy['E'][:m.N_EXC, :m.N_EXC][w_r_copy['E'][:m.N_EXC, m.N_EXC] > m.W_E_E_R_MAX] = m.W_E_E_R_MAX
+            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC][w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] > m.W_E_I_R_MAX] = m.W_E_I_R_MAX
 
             # output weight bound
             i_cell_summed_inputs = w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC].sum(axis=1)
