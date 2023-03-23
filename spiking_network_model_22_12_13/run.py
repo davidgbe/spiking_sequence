@@ -122,8 +122,6 @@ M = Generic(
     ALPHA_3=50,
     ALPHA_4=-25,
     ALPHA_5=args.alpha_5[0],
-    BETA_1=1,
-    BETA_2=1e-5, #1e-5
 
     HETERO_COMP_MECH=args.hetero_comp_mech[0],
     STDP_TYPE=args.stdp_type[0],
@@ -642,8 +640,8 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                 'first_spk_times': first_spk_times,
                 'spk_bins': spk_bins,
                 'freqs': freqs,
-                'exc_raster': np.nonzero(exc_raster),
-                'inh_raster': np.nonzero(inh_raster),
+                'exc_raster': exc_raster,
+                'inh_raster': inh_raster,
                 'w_r_e': rsp.ntwk.w_r['E'],
                 'w_r_i': rsp.ntwk.w_r['I'],
             }
