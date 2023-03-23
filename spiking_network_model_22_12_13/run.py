@@ -85,7 +85,7 @@ M = Generic(
     # Connection probabilities
     CON_PROB_R=0.,
     E_E_LOCAL_CON_PROB=0.8,
-    E_I_CON_PROB=0.075,
+    E_I_CON_PROB=0.15,
     I_E_CON_PROB=0.8,
 
     # Weights
@@ -95,7 +95,7 @@ M = Generic(
     W_E_E_R=args.w_ee[0],
     W_E_E_R_MIN=1e-8,
     W_E_E_R_MAX=10e-4,
-    W_E_I_R_MAX=2 * args.w_ei[0],
+    W_E_I_R_MAX=4 * args.w_ei[0],
     SUPER_SYNAPSE_SIZE=1.5e-3,
 
     # Dropout params
@@ -512,7 +512,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
         min_ee_weight = w_r_copy['E'][:m.N_EXC, :(m.N_EXC + m.N_UVA)].min()
         graph_weight_matrix(w_r_copy['E'][:m.N_EXC, :(m.N_EXC + m.N_UVA)], 'w_e_e_r\n', ax=axs[5],
             v_min=min_ee_weight, v_max=m.W_E_E_R_MAX/5, cmap=cmap)
-        graph_weight_matrix(w_r_copy['E'][m.N_EXC:, :m.N_EXC], 'w_e_i_r\n', ax=axs[6], v_max=2 * m.W_E_I_R, cmap=cmap)
+        graph_weight_matrix(w_r_copy['E'][m.N_EXC:, :m.N_EXC], 'w_e_i_r\n', ax=axs[6], v_max=m.W_E_I_R_MAX, cmap=cmap)
 
         spks_for_e_cells = rsp.spks[:, :m.N_EXC]
         spks_for_i_cells = rsp.spks[:, (m.N_EXC + m.N_UVA):(m.N_EXC + m.N_UVA + m.N_INH)]
