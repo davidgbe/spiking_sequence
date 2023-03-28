@@ -95,7 +95,7 @@ M = Generic(
     W_E_E_R=args.w_ee[0],
     W_E_R_MIN=1e-8,
     W_E_E_R_MAX=10e-4,
-    W_E_I_R_MAX=4 * args.w_ei[0],
+    W_E_I_R_MAX=2 * args.w_ei[0],
     SUPER_SYNAPSE_SIZE=1.5e-3,
 
     # Dropout params
@@ -126,13 +126,13 @@ M = Generic(
     HETERO_COMP_MECH=args.hetero_comp_mech[0],
     STDP_TYPE=args.stdp_type[0],
 
-    SETPOINT_MEASUREMENT_PERIOD=(1500, 1600),
+    SETPOINT_MEASUREMENT_PERIOD=(1000, 1100),
 )
 
 print(M.HETERO_COMP_MECH)
 print(args.cond[0])
 
-S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=110e-3, EPOCHS=7000)
+S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=95e-3, EPOCHS=7000)
 np.random.seed(S.RNG_SEED)
 
 M.SUMMED_W_E_E_R_MAX = M.W_E_E_R
@@ -586,7 +586,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             ei_update_plus = rsp.pair_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
             ei_update_minus = 0 * rsp.pair_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
 
-            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 5 * m.ETA * ((m.W_E_I_R_MAX * ei_connectivity - exc_ei_weights) * ei_update_plus + exc_ei_weights * ei_update_minus)
+            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 5 * m.ETA * ((m.W_E_I_R_MAX * ei_connectivity - exc_ei_weights) * ei_update_plus + exc_ei_weights * (ei_update_minus - 1))
 
             # HETEROSYNAPTIC COMPETITION RULES
 
@@ -605,15 +605,36 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                     square_levels = compute_secreted_levels(spks_for_e_cells, exc_locs, m, target_locs=square_coords)
                     graph_weight_matrix(square_levels.reshape(n_steps, n_steps), '', ax=axs[8], cmap='viridis')
 
-                    secreted_diffs = target_secreted_levels - secreted_levels
+                    secreted_diffs = target_secreted_levels * 1.05 - secreted_levels
 
                     def sigmoid_tranform(x):
                         return (np.exp(x) - 1) / (np.exp(x) + 1)
 
                     sigmoid_transform_e_diffs = sigmoid_tranform(secreted_diffs / 100)
 
-                    w_update = sigmoid_transform_e_diffs.reshape(sigmoid_transform_e_diffs.shape[0], 1) * np.ones((m.N_EXC, m.N_EXC + m.N_UVA)).astype(float)
-                    w_r_copy['E'][:m.N_EXC, :m.N_EXC] += (m.ETA * m.ALPHA_5 * w_update * exc_ee_weights)
+                    w = m.W_E_E_R / m.PROJECTION_NUM
+
+                    # print(np.count_nonzero(secreted_diffs > 0))
+
+                    new_synapses_ee = exp_if_under_val(0.002, (m.N_EXC, m.N_EXC), 5 * w)
+                    print(new_synapses_ee[new_synapses_ee.nonzero()])
+                    new_synapses_ee[secreted_diffs <= 0, :] = 0
+                    if surviving_cell_mask is not None:
+                        new_synapses_ee[~surviving_cell_mask, :] = 0
+                        new_synapses_ee[:, ~surviving_cell_mask] = 0
+                    np.fill_diagonal(new_synapses_ee, 0)
+                    w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
+                    ee_connectivity = np.where(np.logical_and(ee_connectivity, new_synapses_ee > 0), 1, 0)
+
+                    new_synapses_ei = exp_if_under_val(0.002, (m.N_INH, m.N_EXC), 5 * m.W_E_I_R)
+                    new_synapses_ei[:, secreted_diffs <= 0] = 0
+                    if surviving_cell_mask is not None:
+                        new_synapses_ei[:, ~surviving_cell_mask] = 0
+                    w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += new_synapses_ei
+                    ei_connectivity = np.where(np.logical_and(ei_connectivity, new_synapses_ei > 0), 1, 0)
+
+                    # w_update = sigmoid_transform_e_diffs.reshape(sigmoid_transform_e_diffs.shape[0], 1) * np.ones((m.N_EXC, m.N_EXC + m.N_UVA)).astype(float)
+                    # w_r_copy['E'][:m.N_EXC, :m.N_EXC] += (m.ETA * m.ALPHA_5 * w_update * exc_ee_weights)
 
             w_r_copy['E'][:m.N_EXC, :m.N_EXC][np.logical_and((w_r_copy['E'][:m.N_EXC, :m.N_EXC] < m.W_E_R_MIN), ee_connectivity)] = m.W_E_R_MIN
             w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC][np.logical_and((w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] < m.W_E_R_MIN), ei_connectivity)] = m.W_E_R_MIN
@@ -622,9 +643,9 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC][w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] > m.W_E_I_R_MAX] = m.W_E_I_R_MAX
 
             # output weight bound
-            i_cell_summed_inputs = w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC].sum(axis=1)
-            rescaling = np.where(i_cell_summed_inputs  > ei_initial_summed_inputs, ei_initial_summed_inputs / i_cell_summed_inputs, 1.)
-            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] *= rescaling.reshape(rescaling.shape[0], 1)
+            # i_cell_summed_inputs = w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC].sum(axis=1)
+            # rescaling = np.where(i_cell_summed_inputs  > ei_initial_summed_inputs, ei_initial_summed_inputs / i_cell_summed_inputs, 1.)
+            # w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] *= rescaling.reshape(rescaling.shape[0], 1)
 
             # print('ei_mean_stdp', np.mean(m.ETA * m.BETA * stdp_burst_pair_e_i))
             # w_r_copy['I'][:(m.N_EXC + m.N_SILENT), (m.N_EXC + m.N_SILENT):] += 1e-4 * m.ETA * m.BETA * stdp_burst_pair_e_i
@@ -658,7 +679,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                 sio.savemat(robustness_output_dir + '/' + f'title_{args.title[0]}_idx_{zero_pad(i_e, 4)}', {'data': batched_data_to_save})
                 batched_data_to_save = []
 
-            if i_e % 100 == 0:
+            if i_e % 10 == 0:
                 fig.savefig(f'{output_dir}/{zero_pad(i_e, 4)}.png')
 
         log_file = open(os.path.join(robustness_output_dir, 'log'), 'a+')
