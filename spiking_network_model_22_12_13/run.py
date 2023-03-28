@@ -159,32 +159,6 @@ def compute_secreted_levels(spks_for_e_cells, exc_locs, m, surviving_cell_mask=N
     target_locs = exc_locs if target_locs is None else target_locs
     return compute_aggregate_dist_metric(target_locs, exc_locs, activity_metric)
 
-def ff_unit_func(m, p):
-    w = m.W_E_E_R / m.PROJECTION_NUM
-    connectivity = gaussian_if_under_val(p, (m.PROJECTION_NUM, m.PROJECTION_NUM), w, 0.3 * w)
-    connectivity[(connectivity != 0) & (connectivity < m.W_E_R_MIN)] = 0
-    return connectivity
-
-# def generate_ff_chain(size, unit_size, unit_funcs, ff_deg=[0, 1], tempering=[1., 1.]):
-#     if size % unit_size != 0:
-#         raise ValueError('unit_size does not evenly divide size')
-
-#     if len(ff_deg) != len(tempering):
-#         raise ValueError('ff_deg and tempering must be the same length')
-
-#     n_units = int(size / unit_size)
-#     chain_order = np.arange(0, n_units, dtype=int)
-#     mat = np.zeros((size, size))
-
-#     for idx in chain_order:
-#         layer_start = unit_size * idx
-#         for j, ff_idx in enumerate(ff_deg):
-#             if idx + ff_idx < len(chain_order) and idx + ff_idx >= 0:
-#                 ff_layer_idx = chain_order[idx + ff_idx]
-#                 ff_layer_start = unit_size * ff_layer_idx
-
-#                 mat[ff_layer_start : ff_layer_start + unit_size, layer_start : layer_start + unit_size] = unit_funcs[j]() * tempering[j]
-#     return mat
 
 def gen_continuous_network(size, m):
     w = m.W_E_E_R / m.PROJECTION_NUM
