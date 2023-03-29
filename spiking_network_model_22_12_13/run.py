@@ -126,7 +126,7 @@ M = Generic(
     HETERO_COMP_MECH=args.hetero_comp_mech[0],
     STDP_TYPE=args.stdp_type[0],
 
-    SETPOINT_MEASUREMENT_PERIOD=(100, 110),
+    SETPOINT_MEASUREMENT_PERIOD=(1000, 1100),
 )
 
 print(M.HETERO_COMP_MECH)
@@ -652,7 +652,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                 sio.savemat(robustness_output_dir + '/' + f'title_{args.title[0]}_idx_{zero_pad(i_e, 4)}', {'data': batched_data_to_save})
                 batched_data_to_save = []
 
-            if i_e % 1 == 0:
+            if i_e % 100 == 0:
                 fig.savefig(f'{output_dir}/{zero_pad(i_e, 4)}.png')
 
         log_file = open(os.path.join(robustness_output_dir, 'log'), 'a+')
