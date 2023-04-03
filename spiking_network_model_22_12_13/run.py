@@ -590,7 +590,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
                     w = m.W_E_E_R / m.PROJECTION_NUM
 
-                    new_synapses_ee = exp_if_under_val(0.004, (m.N_EXC, m.N_EXC), 0.1 * w)
+                    new_synapses_ee = exp_if_under_val(0.0002, (m.N_EXC, m.N_EXC), 5 * w)
                     new_synapses_ee[secreted_diffs <= 0, :] = 0
                     if surviving_cell_mask is not None:
                         # new_synapses_ee[~surviving_cell_mask, :] = 0
