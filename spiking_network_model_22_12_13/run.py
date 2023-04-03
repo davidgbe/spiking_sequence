@@ -576,7 +576,10 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                     x, y, z = np.meshgrid(np.linspace(-1, 1, n_steps), np.linspace(-1, 1, n_steps), [0])
                     square_coords = np.stack([x.flatten(), y.flatten(), z.flatten()], axis=1)
 
-                    square_levels = compute_secreted_levels(spks_for_e_cells, exc_locs, m, target_locs=square_coords)
+                    if i_e >= m.DROPOUT_ITER:
+                        square_levels = compute_secreted_levels(spks_for_e_cells, exc_locs, m, target_locs=square_coords, surviving_cell_mask=surviving_cell_mask)
+                    else:
+                        square_levels = compute_secreted_levels(spks_for_e_cells, exc_locs, m, target_locs=square_coords)
                     graph_weight_matrix(square_levels.reshape(n_steps, n_steps), '', ax=axs[8], cmap='viridis')
 
                     secreted_diffs = target_secreted_levels - secreted_levels * 1.05
@@ -590,7 +593,19 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
                     w = m.W_E_E_R / m.PROJECTION_NUM
 
-                    new_synapses_ee = np.where(np.random.rand(m.N_EXC, m.N_EXC) < 0.0002, 0.5 * w, 0)
+                    if i_e >= m.DROPOUT_ITER and i_e < m.DROPOUT_ITER + 100:
+                        for l_syn in range(50):
+                            new_synapses_ee = np.where(np.random.rand(m.N_EXC, m.N_EXC) < 0.0002, 3 * w, 0)
+                            new_synapses_ee[secreted_diffs <= 0, :] = 0
+                            if surviving_cell_mask is not None:
+                                # new_synapses_ee[~surviving_cell_mask, :] = 0
+                                new_synapses_ee[:, ~surviving_cell_mask] = 0
+                                new_synapses_ee[:, spks_for_e_cells.sum(axis=0) <= 0] = 0
+                            np.fill_diagonal(new_synapses_ee, 0)
+                            w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
+                            ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
+
+                    new_synapses_ee = np.where(np.random.rand(m.N_EXC, m.N_EXC) < 0.0002, 3 * w, 0)
                     new_synapses_ee[secreted_diffs <= 0, :] = 0
                     if surviving_cell_mask is not None:
                         # new_synapses_ee[~surviving_cell_mask, :] = 0
