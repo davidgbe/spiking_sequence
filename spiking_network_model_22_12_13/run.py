@@ -152,7 +152,7 @@ def compute_secreted_levels(spks_for_e_cells, exc_locs, m, surviving_cell_mask=N
     curr_firing_rates = np.sum(spks_for_e_cells > 0, axis=0)
 
     if surviving_cell_mask is not None:
-        curr_firing_rates[surviving_cell_mask] = 0
+        curr_firing_rates[~surviving_cell_mask] = 0
 
     activity_metric = partial(gaussian_metric, w=curr_firing_rates, v=0.3)
 
@@ -451,7 +451,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
         scale = 0.8
         gs = gridspec.GridSpec(14, 1)
-        fig = plt.figure(figsize=(9 * scale, 30 * scale), tight_layout=True)
+        fig = plt.figure(figsize=(9 * scale, 35 * scale), tight_layout=True)
         axs = [
             fig.add_subplot(gs[:2]),
             fig.add_subplot(gs[2]),
@@ -494,13 +494,19 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
         spks_received_for_e_cells = rsp.spks_received[:, :m.N_EXC, :m.N_EXC]
         spks_received_for_i_cells = rsp.spks_received[:, m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
 
-        spk_bins, freqs = bin_occurrences(spks_for_e_cells.sum(axis=0), max_val=800, bin_size=1)
+        if surviving_cell_mask is not None:
+            print('surviving_count:', np.count_nonzero(surviving_cell_mask))
+            spk_bins, freqs = bin_occurrences(spks_for_e_cells[:, surviving_cell_mask].sum(axis=0), max_val=800, bin_size=1)
+            print('TOTAL_ACTIVITY:', spks_for_e_cells[:, surviving_cell_mask].sum())
+        else:
+            spk_bins, freqs = bin_occurrences(spks_for_e_cells.sum(axis=0), max_val=800, bin_size=1)
+            print('TOTAL_ACTIVITY:', spks_for_e_cells.sum())
 
         axs[1].bar(spk_bins, freqs, alpha=0.5)
         axs[1].set_xlabel('Spks per neuron')
         axs[1].set_ylabel('Frequency')
         axs[1].set_xlim(-0.5, 30.5)
-        # axs[1].set_ylim(0, m.N_EXC + m.N_SILENT)
+        axs[1].set_ylim(0, 100)
 
         raster = np.stack([rsp.spks_t, rsp.spks_c])
         exc_raster = raster[:, raster[1, :] < m.N_EXC]
@@ -584,12 +590,14 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
                     secreted_diffs = target_secreted_levels - secreted_levels * 1.05
 
+                    print(secreted_diffs)
+
                     print('lacking activity count:', np.count_nonzero(secreted_diffs > 0))
 
                     def sigmoid_tranform(x):
                         return (np.exp(x) - 1) / (np.exp(x) + 1)
 
-                    sigmoid_transform_e_diffs = sigmoid_tranform(secreted_diffs / 100)
+                    sigmoid_transform_e_diffs = sigmoid_tranform(np.where(secreted_diffs > 0, secreted_diffs, 0) / 10)
 
                     w = m.W_E_E_R / m.PROJECTION_NUM
 
@@ -606,13 +614,11 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                     #         w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
                     #         ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
 
-                    new_synapses_ee = 0.005 * w * ee_connectivity + np.where(np.random.rand(m.N_EXC, m.N_EXC) < 0.002, 0.005 * w, 0)
-                    new_synapses_ee[secreted_diffs <= 0, :] = 0
+                    new_synapses_ee = 0.02 * w * sigmoid_transform_e_diffs.reshape((len(sigmoid_transform_e_diffs), 1)) * ee_connectivity
                     if surviving_cell_mask is not None:
-                        # new_synapses_ee[~surviving_cell_mask, :] = 0
+                        new_synapses_ee[~surviving_cell_mask, :] = 0
                         new_synapses_ee[:, ~surviving_cell_mask] = 0
                         new_synapses_ee[:, spks_for_e_cells.sum(axis=0) <= 0] = 0
-                        # new_synapses_ee[spks_for_e_cells.sum(axis=0) >= 4, :] = 0
                     np.fill_diagonal(new_synapses_ee, 0)
                     w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
                     ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
