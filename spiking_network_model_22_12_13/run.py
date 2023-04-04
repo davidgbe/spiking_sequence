@@ -126,7 +126,7 @@ M = Generic(
     HETERO_COMP_MECH=args.hetero_comp_mech[0],
     STDP_TYPE=args.stdp_type[0],
 
-    SETPOINT_MEASUREMENT_PERIOD=(1100, 1200),
+    SETPOINT_MEASUREMENT_PERIOD=(1100, 1150),
 )
 
 print(M.HETERO_COMP_MECH)
@@ -593,24 +593,26 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
                     w = m.W_E_E_R / m.PROJECTION_NUM
 
-                    if i_e >= m.DROPOUT_ITER and i_e < m.DROPOUT_ITER + 100:
-                        for l_syn in range(50):
-                            new_synapses_ee = np.where(np.random.rand(m.N_EXC, m.N_EXC) < 0.0002, 3 * w, 0)
-                            new_synapses_ee[secreted_diffs <= 0, :] = 0
-                            if surviving_cell_mask is not None:
-                                # new_synapses_ee[~surviving_cell_mask, :] = 0
-                                new_synapses_ee[:, ~surviving_cell_mask] = 0
-                                new_synapses_ee[:, spks_for_e_cells.sum(axis=0) <= 0] = 0
-                            np.fill_diagonal(new_synapses_ee, 0)
-                            w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
-                            ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
+                    # if i_e >= m.DROPOUT_ITER and i_e < m.DROPOUT_ITER + 100:
+                    #     for l_syn in range(50):
+                    #         new_synapses_ee = np.where(np.random.rand(m.N_EXC, m.N_EXC) < 0.0002, 3 * w, 0)
+                    #         new_synapses_ee[secreted_diffs <= 0, :] = 0
+                    #         if surviving_cell_mask is not None:
+                    #             # new_synapses_ee[~surviving_cell_mask, :] = 0
+                    #             new_synapses_ee[:, ~surviving_cell_mask] = 0
+                    #             new_synapses_ee[:, spks_for_e_cells.sum(axis=0) <= 0] = 0
+                    #             # new_synapses_ee[spks_for_e_cells.sum(axis=0) >= 4, :] = 0
+                    #         np.fill_diagonal(new_synapses_ee, 0)
+                    #         w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
+                    #         ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
 
-                    new_synapses_ee = np.where(np.random.rand(m.N_EXC, m.N_EXC) < 0.0002, 3 * w, 0)
+                    new_synapses_ee = 0.005 * w * ee_connectivity
                     new_synapses_ee[secreted_diffs <= 0, :] = 0
                     if surviving_cell_mask is not None:
                         # new_synapses_ee[~surviving_cell_mask, :] = 0
                         new_synapses_ee[:, ~surviving_cell_mask] = 0
                         new_synapses_ee[:, spks_for_e_cells.sum(axis=0) <= 0] = 0
+                        # new_synapses_ee[spks_for_e_cells.sum(axis=0) >= 4, :] = 0
                     np.fill_diagonal(new_synapses_ee, 0)
                     w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
                     ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
