@@ -606,7 +606,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                     #         w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
                     #         ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
 
-                    new_synapses_ee = 0.005 * w * ee_connectivity
+                    new_synapses_ee = 0.005 * w * ee_connectivity + np.where(np.random.rand(m.N_EXC, m.N_EXC) < 0.002, 0.005 * w, 0)
                     new_synapses_ee[secreted_diffs <= 0, :] = 0
                     if surviving_cell_mask is not None:
                         # new_synapses_ee[~surviving_cell_mask, :] = 0
