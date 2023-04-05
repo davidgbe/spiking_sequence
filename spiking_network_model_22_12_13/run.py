@@ -112,15 +112,15 @@ M = Generic(
     TAU_STDP_PAIR_MINUS=33.7e-3,
 
     A_PAIR_PLUS=0,
-    A_PAIR_MINUS=-2,
-    A_TRIP_PLUS=5,
+    A_PAIR_MINUS=-2 * 0.1,
+    A_TRIP_PLUS=5 * 0.1,
     A_TRIP_MINUS=0,
 
     ETA=0.0005,
     ALPHA_1=1,
     ALPHA_2=0,
     ALPHA_3=50,
-    ALPHA_4=-25,
+    ALPHA_4=-100,
     ALPHA_5=args.alpha_5[0],
 
     HETERO_COMP_MECH=args.hetero_comp_mech[0],
@@ -546,7 +546,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             exc_ei_weights = w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
 
             # Firing rate homeostasis
-            e_diffs = np.maximum(np.sum(spks_for_e_cells > 0, axis=0) - 3, 0)
+            e_diffs = np.maximum(np.sum(spks_for_e_cells > 0, axis=0) - 5, 0)
             e_diffs_squared = np.power(e_diffs, 2)
 
             fr_update_e = e_diffs_squared.reshape(e_diffs_squared.shape[0], 1) * np.ones((m.N_EXC, m.N_EXC)).astype(float)
