@@ -26,6 +26,7 @@ matplotlib.use('agg')
 cc = np.concatenate
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--env', metavar='E', type=str)
 parser.add_argument('--title', metavar='T', type=str, nargs=1)
 parser.add_argument('--rng_seed', metavar='r', type=int, nargs=1)
 parser.add_argument('--dropout_per', metavar='d', type=float, nargs=1)
@@ -120,7 +121,7 @@ M = Generic(
     ALPHA_1=1,
     ALPHA_2=0,
     ALPHA_3=50,
-    ALPHA_4=-100,
+    ALPHA_4=-500,
     ALPHA_5=args.alpha_5[0],
 
     HETERO_COMP_MECH=args.hetero_comp_mech[0],
@@ -132,7 +133,7 @@ M = Generic(
 print(M.HETERO_COMP_MECH)
 print(args.cond[0])
 
-S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=95e-3, EPOCHS=7000)
+S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=95e-3, EPOCHS=12000)
 np.random.seed(S.RNG_SEED)
 
 M.SUMMED_W_E_E_R_MAX = M.W_E_E_R
@@ -588,7 +589,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                         square_levels = compute_secreted_levels(spks_for_e_cells, exc_locs, m, target_locs=square_coords)
                     graph_weight_matrix(square_levels.reshape(n_steps, n_steps), '', ax=axs[8], cmap='viridis')
 
-                    secreted_diffs = target_secreted_levels - secreted_levels * 1.05
+                    secreted_diffs = target_secreted_levels - secreted_levels
 
                     print(secreted_diffs)
 
@@ -676,7 +677,8 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                 sio.savemat(robustness_output_dir + '/' + f'title_{args.title[0]}_idx_{zero_pad(i_e, 4)}', {'data': batched_data_to_save})
                 batched_data_to_save = []
 
-            if i_e % 100 == 0:
+            fig_save_freq = 1 if args.env == 'local' else 100
+            if i_e % fig_save_freq == 0:
                 fig.savefig(f'{output_dir}/{zero_pad(i_e, 4)}.png')
 
         log_file = open(os.path.join(robustness_output_dir, 'log'), 'a+')
