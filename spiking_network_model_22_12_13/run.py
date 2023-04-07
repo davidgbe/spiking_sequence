@@ -113,8 +113,8 @@ M = Generic(
     TAU_STDP_PAIR_MINUS=33.7e-3,
 
     A_PAIR_PLUS=0,
-    A_PAIR_MINUS=-2 * 0.1,
-    A_TRIP_PLUS=5 * 0.1,
+    A_PAIR_MINUS=-2 * 0.3,
+    A_TRIP_PLUS=5 * 0.3,
     A_TRIP_MINUS=0,
 
     ETA=0.0005,
@@ -567,7 +567,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             ei_update_plus = rsp.pair_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
             ei_update_minus = 0 * rsp.pair_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
 
-            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 5 * m.ETA * ((m.W_E_I_R_MAX * ei_connectivity - exc_ei_weights) * ei_update_plus + exc_ei_weights * (ei_update_minus - 1))
+            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 5 * m.ETA * ((m.W_E_I_R_MAX * ei_connectivity - exc_ei_weights) * ei_update_plus + exc_ei_weights * ei_update_minus)
 
             # HETEROSYNAPTIC COMPETITION RULES
 
