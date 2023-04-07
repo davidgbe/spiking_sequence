@@ -121,13 +121,13 @@ M = Generic(
     ALPHA_1=1,
     ALPHA_2=0,
     ALPHA_3=50,
-    ALPHA_4=-500,
+    ALPHA_4=-100,
     ALPHA_5=args.alpha_5[0],
 
     HETERO_COMP_MECH=args.hetero_comp_mech[0],
     STDP_TYPE=args.stdp_type[0],
 
-    SETPOINT_MEASUREMENT_PERIOD=(1100, 1150),
+    SETPOINT_MEASUREMENT_PERIOD=(1100, 1200),
 )
 
 print(M.HETERO_COMP_MECH)
@@ -641,9 +641,9 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC][w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] > m.W_E_I_R_MAX] = m.W_E_I_R_MAX
 
             # output weight bound
-            # i_cell_summed_inputs = w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC].sum(axis=1)
-            # rescaling = np.where(i_cell_summed_inputs  > ei_initial_summed_inputs, ei_initial_summed_inputs / i_cell_summed_inputs, 1.)
-            # w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] *= rescaling.reshape(rescaling.shape[0], 1)
+            i_cell_summed_inputs = w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC].sum(axis=1)
+            rescaling = np.where(i_cell_summed_inputs  > ei_initial_summed_inputs, ei_initial_summed_inputs / i_cell_summed_inputs, 1.)
+            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] *= rescaling.reshape(rescaling.shape[0], 1)
 
             # print('ei_mean_stdp', np.mean(m.ETA * m.BETA * stdp_burst_pair_e_i))
             # w_r_copy['I'][:(m.N_EXC + m.N_SILENT), (m.N_EXC + m.N_SILENT):] += 1e-4 * m.ETA * m.BETA * stdp_burst_pair_e_i
@@ -662,13 +662,13 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                 'freqs': freqs,
                 'exc_raster': exc_raster,
                 'inh_raster': inh_raster,
-                'w_r_e': rsp.ntwk.w_r['E'],
-                'w_r_i': rsp.ntwk.w_r['I'],
+                'w_r_e': copy(rsp.ntwk.w_r['E']),
+                'w_r_i': copy(rsp.ntwk.w_r['I']),
             }
 
 
             if i_e >= m.DROPOUT_ITER:
-                base_data_to_save['surviving_cell_mask'] = surviving_cell_mask
+                base_data_to_save['surviving_cell_mask'] = copy(surviving_cell_mask)
 
             batched_data_to_save.append(base_data_to_save)
 
