@@ -598,7 +598,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                     def sigmoid_tranform(x):
                         return (np.exp(x) - 1) / (np.exp(x) + 1)
 
-                    sigmoid_transform_e_diffs = sigmoid_tranform(np.where(secreted_diffs > 0, secreted_diffs, 0) / 10)
+                    sigmoid_transform_e_diffs = sigmoid_tranform(secreted_diffs / 10)
 
                     w = m.W_E_E_R / m.PROJECTION_NUM
 
