@@ -121,7 +121,7 @@ M = Generic(
     ALPHA_1=1,
     ALPHA_2=0,
     ALPHA_3=50,
-    ALPHA_4=-100,
+    ALPHA_4=-50,
     ALPHA_5=args.alpha_5[0],
 
     HETERO_COMP_MECH=args.hetero_comp_mech[0],
@@ -547,7 +547,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             exc_ei_weights = w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
 
             # Firing rate homeostasis
-            e_diffs = np.maximum(np.sum(spks_for_e_cells > 0, axis=0) - 5, 0)
+            e_diffs = np.maximum(np.sum(spks_for_e_cells > 0, axis=0) - 3, 0)
             e_diffs_squared = np.power(e_diffs, 2)
 
             fr_update_e = e_diffs_squared.reshape(e_diffs_squared.shape[0], 1) * np.ones((m.N_EXC, m.N_EXC)).astype(float)
@@ -567,7 +567,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             ei_update_plus = rsp.pair_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
             ei_update_minus = 0 * rsp.pair_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
 
-            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 5 * m.ETA * ((m.W_E_I_R_MAX * ei_connectivity - exc_ei_weights) * ei_update_plus + exc_ei_weights * ei_update_minus)
+            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += m.ETA * ((m.W_E_I_R_MAX * ei_connectivity - exc_ei_weights) * ei_update_plus + exc_ei_weights * ei_update_minus)
 
             # HETEROSYNAPTIC COMPETITION RULES
 
