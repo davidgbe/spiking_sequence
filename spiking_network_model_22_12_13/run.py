@@ -85,7 +85,7 @@ M = Generic(
 
     # Connection probabilities
     CON_PROB_R=0.,
-    E_E_LOCAL_CON_PROB=0.8,
+    E_E_LOCAL_CON_PROB=0.5,
     E_I_CON_PROB=0.15,
     I_E_CON_PROB=0.8,
 
