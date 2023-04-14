@@ -96,7 +96,7 @@ M = Generic(
     W_E_E_R=args.w_ee[0],
     W_E_R_MIN=1e-8,
     W_E_E_R_MAX=1e-3,
-    W_E_I_R_MAX=7e-5,
+    W_E_I_R_MAX=2 * args.w_ei[0],
     SUPER_SYNAPSE_SIZE=1.5e-3,
 
     # Dropout params
@@ -486,7 +486,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
         min_ee_weight = w_r_copy['E'][:m.N_EXC, :(m.N_EXC + m.N_UVA)].min()
         graph_weight_matrix(w_r_copy['E'][:m.N_EXC, :(m.N_EXC + m.N_UVA)], 'w_e_e_r\n', ax=axs[5],
-            v_min=min_ee_weight, v_max=0.25 * m.W_E_E_R_MAX, cmap=cmap)
+            v_min=min_ee_weight, v_max=m.W_E_E_R_MAX, cmap=cmap)
         graph_weight_matrix(w_r_copy['E'][m.N_EXC:, :m.N_EXC], 'w_e_i_r\n', ax=axs[6], v_max=m.W_E_I_R_MAX, cmap=cmap)
 
         spks_for_e_cells = rsp.spks[:, :m.N_EXC]
@@ -617,9 +617,8 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
                     new_synapses_ee = 0.02 * w * sigmoid_transform_e_diffs.reshape((len(sigmoid_transform_e_diffs), 1)) * ee_connectivity
                     if surviving_cell_mask is not None:
-                        # new_synapses_ee[~surviving_cell_mask, :] = 0
                         new_synapses_ee[:, ~surviving_cell_mask] = 0
-                        # new_synapses_ee[:, spks_for_e_cells.sum(axis=0) <= 0] = 0
+                        new_synapses_ee[:, spks_for_e_cells.sum(axis=0) <= 0] = 0
                     np.fill_diagonal(new_synapses_ee, 0)
                     w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
                     ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
