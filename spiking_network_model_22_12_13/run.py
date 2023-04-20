@@ -120,7 +120,7 @@ M = Generic(
     ETA=0.0005,
     ALPHA_1=1,
     ALPHA_2=0,
-    ALPHA_3=50,
+    ALPHA_3=5,
     ALPHA_4=-50,
     ALPHA_5=args.alpha_5[0],
 
@@ -180,7 +180,7 @@ def gen_continuous_network(size, m):
 
     cont_dist_cutoff = 25 #25
 
-    sequence_weights = np.where(active_inactive_pairings, (0.7 + 0.3 * args.silent_fraction[0]) * w * gen_local_ee_connectivity(cont_idx_dists, cont_dist_cutoff), inactive_weights)
+    sequence_weights = np.where(active_inactive_pairings, (0.4 + 0.3 * args.silent_fraction[0]) * w * gen_local_ee_connectivity(cont_idx_dists, cont_dist_cutoff), inactive_weights)
     sequence_delays = np.abs(cont_idx_dists)
     sequence_delays = np.where(sequence_delays < cont_dist_cutoff, sequence_delays, cont_dist_cutoff * np.random.rand(size, size))
 
