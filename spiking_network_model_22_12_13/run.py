@@ -133,7 +133,7 @@ M = Generic(
 print(M.HETERO_COMP_MECH)
 print(args.cond[0])
 
-S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=95e-3, EPOCHS=7000)
+S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=115e-3, EPOCHS=7000)
 np.random.seed(S.RNG_SEED)
 
 M.SUMMED_W_E_E_R_MAX = M.W_E_E_R
@@ -178,7 +178,7 @@ def gen_continuous_network(size, m):
 
     inactive_weights = np.concatenate([exp_if_under_val(0.075, (1, size), 0.5 * r * w) for r in np.random.rand(size)], axis=0)
 
-    cont_dist_cutoff = 25 #25
+    cont_dist_cutoff = 20 #25
 
     sequence_weights = np.where(active_inactive_pairings, w / (1 - args.silent_fraction[0]) * gen_local_ee_connectivity(cont_idx_dists, cont_dist_cutoff), inactive_weights)
     sequence_delays = np.abs(cont_idx_dists)
@@ -567,7 +567,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             ei_update_plus = rsp.pair_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
             ei_update_minus = 0 * rsp.pair_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
 
-            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += m.ETA * ((m.W_E_I_R_MAX * ei_connectivity - exc_ei_weights) * ei_update_plus + exc_ei_weights * ei_update_minus)
+            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 5 * m.ETA * ((m.W_E_I_R_MAX * ei_connectivity - exc_ei_weights) * ei_update_plus + exc_ei_weights * ei_update_minus)
 
             # HETEROSYNAPTIC COMPETITION RULES
 
