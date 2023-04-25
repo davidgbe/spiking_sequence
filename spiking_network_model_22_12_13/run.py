@@ -58,10 +58,10 @@ M = Generic(
     # Inhibitory membrane
     C_M_I=1e-6,
     G_L_I=.4e-3, 
-    E_L_I=-.057,
+    E_L_I=-.053,
     V_TH_I=-.043,
     T_R_I=1e-3, #0.25e-3,
-    E_R_I=-.055, # reset voltage (V)
+    E_R_I=-.053, # reset voltage (V)
     
     # syn rev potentials and decay times
     E_E=0, E_I=-.09, E_A=-.07, T_E=.004, T_I=.004, T_A=.006,
@@ -86,8 +86,8 @@ M = Generic(
     # Connection probabilities
     CON_PROB_R=0.,
     E_E_LOCAL_CON_PROB=0.8,
-    E_I_CON_PROB=0.15,
-    I_E_CON_PROB=0.8,
+    E_I_CON_PROB=0.075 / (1 - 0.8 * args.silent_fraction[0]),
+    I_E_CON_PROB=0.5,
 
     # Weights
     W_E_I_R=args.w_ei[0],
@@ -133,7 +133,7 @@ M = Generic(
 print(M.HETERO_COMP_MECH)
 print(args.cond[0])
 
-S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=95e-3, EPOCHS=12000)
+S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=95e-3, EPOCHS=7000)
 np.random.seed(S.RNG_SEED)
 
 M.SUMMED_W_E_E_R_MAX = M.W_E_E_R
@@ -180,7 +180,7 @@ def gen_continuous_network(size, m):
 
     cont_dist_cutoff = 25 #25
 
-    sequence_weights = np.where(active_inactive_pairings, (0.4 + 0.3 * args.silent_fraction[0]) * w * gen_local_ee_connectivity(cont_idx_dists, cont_dist_cutoff), inactive_weights)
+    sequence_weights = np.where(active_inactive_pairings, w / (1 - args.silent_fraction[0]) * gen_local_ee_connectivity(cont_idx_dists, cont_dist_cutoff), inactive_weights)
     sequence_delays = np.abs(cont_idx_dists)
     sequence_delays = np.where(sequence_delays < cont_dist_cutoff, sequence_delays, cont_dist_cutoff * np.random.rand(size, size))
 
