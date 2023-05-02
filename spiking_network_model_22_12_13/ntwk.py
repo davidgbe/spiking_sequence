@@ -9,7 +9,7 @@ import os
 import warnings
 
 from utils.general import zero_pad
-from aux import Generic, c_tile, r_tile, dropout_on_mat
+from aux import Generic
 
 # warnings.simplefilter('ignore', SparseEfficiencyWarning)
 
