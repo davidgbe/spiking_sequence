@@ -29,14 +29,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--env', metavar='E', type=str)
 parser.add_argument('--title', metavar='T', type=str, nargs=1)
 parser.add_argument('--rng_seed', metavar='r', type=int, nargs=1)
-parser.add_argument('--dropout_per', metavar='d', type=float, nargs=1)
-parser.add_argument('--dropout_iter', metavar='di', type=int, nargs=1)
+parser.add_argument('--dropout_per', metavar='d', type=float, default=0)
+parser.add_argument('--dropout_iter', metavar='di', type=int, default=np.inf)
 parser.add_argument('--cond', metavar='r', type=str, nargs=1)
 parser.add_argument('--w_ee', metavar='ee', type=float, nargs=1)
 parser.add_argument('--w_ei', metavar='ei', type=float, nargs=1)
 parser.add_argument('--w_ie', metavar='ie', type=float, nargs=1)
 parser.add_argument('--alpha_5', metavar='a5', type=float, nargs=1)
-parser.add_argument('--silent_fraction', metavar='sf', type=float, nargs=1)
+parser.add_argument('--silent_fraction', metavar='sf', type=float, nargs=1, default=[0.])
 parser.add_argument('--hetero_comp_mech', metavar='H', type=str, nargs=1)
 parser.add_argument('--stdp_type', metavar='S', type=str, nargs=1)
 parser.add_argument('--load_run', metavar='L', type=str, nargs=2)
@@ -66,7 +66,7 @@ M = Generic(
     # syn rev potentials and decay times
     E_E=0, E_I=-.09, E_A=-.07, T_E=.004, T_I=.004, T_A=.006,
     
-    N_EXC_OLD=200,
+    N_EXC_OLD=500,
     N_UVA=0,
     N_INH=50,
     M=20,
@@ -86,8 +86,8 @@ M = Generic(
     # Connection probabilities
     CON_PROB_R=0.,
     E_E_LOCAL_CON_PROB=0.8,
-    E_I_CON_PROB=0.075 / (1 - 0.8 * args.silent_fraction[0]),
-    I_E_CON_PROB=0.5,
+    E_I_CON_PROB=0.1 / (1 - 0.8 * args.silent_fraction[0]),
+    I_E_CON_PROB=1,
 
     # Weights
     W_E_I_R=args.w_ei[0],
@@ -102,10 +102,8 @@ M = Generic(
     # Dropout params
     DROPOUT_MIN_IDX=0,
     DROPOUT_MAX_IDX=0, # set elsewhere
-    DROPOUT_ITER=args.dropout_iter[0],
-    DROPOUT_SEV=args.dropout_per[0],
-    RANDOM_SYN_ADD_ITERS_EE=[i for i in range(args.dropout_iter[0] + 1, args.dropout_iter[0] + 251)],
-    RANDOM_SYN_ADD_ITERS_OTHER=[i for i in range(args.dropout_iter[0] + 1, 3001)],
+    DROPOUT_ITER=args.dropout_iter,
+    DROPOUT_SEV=args.dropout_per,
 
     # Synaptic plasticity params
     TAU_STDP_TRIP=40e-3,
@@ -133,7 +131,7 @@ M = Generic(
 print(M.HETERO_COMP_MECH)
 print(args.cond[0])
 
-S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=115e-3, EPOCHS=7000)
+S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=300e-3, EPOCHS=1)
 np.random.seed(S.RNG_SEED)
 
 M.SUMMED_W_E_E_R_MAX = M.W_E_E_R
@@ -360,41 +358,6 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
         start = time.time()
 
-        if i_e >= m.DROPOUT_ITER and i_e < m.DROPOUT_ITER + n_dropout_iters:
-            w_r_copy['E'][:(m.N_EXC + m.N_UVA + m.N_INH), :m.N_EXC_OLD], surviving_cell_mask_new = dropout_on_mat(w_r_copy['E'][:(m.N_EXC + m.N_UVA + m.N_INH), :m.N_EXC_OLD], p_dropout_for_i_e)
-            surviving_cell_mask_new = np.concatenate([surviving_cell_mask_new, np.ones(m.N_EXC_NEW)])
-            surviving_cell_mask_new = surviving_cell_mask_new.astype(bool)
-            if surviving_cell_mask is not None:
-                surviving_cell_mask = np.logical_and(surviving_cell_mask, surviving_cell_mask_new)
-            else:
-                surviving_cell_mask = surviving_cell_mask_new
-            # print(surviving_cell_mask)
-            ee_connectivity = np.where(w_r_copy['E'][:m.N_EXC, :m.N_EXC] > 0, 1, 0)
-            ei_connectivity = np.where(w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] > 0, 1, 0)
-
-        # growth_prob = 0.0005
-        # if not args.cond[0].startswith('no_repl_no_syn'):
-        #     if i_e in m.RANDOM_SYN_ADD_ITERS_EE:
-        #         new_synapses = exp_if_under_val(0.00022, (m.N_EXC, m.N_EXC), 0.4 * m.W_E_E_R / M.PROJECTION_NUM)
-        #         new_synapses[~surviving_cell_mask, :] = 0
-        #         new_synapses[:, ~surviving_cell_mask] = 0
-        #         np.fill_diagonal(new_synapses, 0)
-        #         w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses
-        #         ee_connectivity = np.where(w_r_copy['E'][:(m.N_EXC), :(m.N_EXC + m.N_UVA)] > 0, 1, 0)
-
-        # if i_e in m.RANDOM_SYN_ADD_ITERS_OTHER:
-        #     new_ei_synapses = gaussian_if_under_val(0.4 * growth_prob, (m.N_INH, m.N_EXC), m.W_E_I_R, 0)
-        #     new_ei_synapses[:, ~surviving_cell_mask] = 0
-        #     new_ei_synapses[np.sum(w_r_copy['E'][(m.N_EXC + m.N_UVA):, :m.N_EXC], axis=1) >= ei_initial_summed_inputs, :] = 0
-        #     w_r_copy['E'][(m.N_EXC + m.N_UVA):, :m.N_EXC] += new_ei_synapses
-
-            # new_ie_synapses = gaussian_if_under_val(10 * growth_prob, (m.N_EXC_NEW, m.N_INH), m.W_I_E_R, 0)
-            # new_ie_synapses[w_r_copy['I'][m.N_EXC_OLD:m.N_EXC, (m.N_EXC + m.N_UVA):] > 0] = 0
-            # w_r_copy['I'][m.N_EXC_OLD:m.N_EXC, (m.N_EXC + m.N_UVA):] += new_ie_synapses
-
-        # if i_e in m.RANDOM_SYN_ADD_ITERS_EE or i_e in m.RANDOM_SYN_ADD_ITERS_OTHER:
-        #     delay_map = make_delay_map(w_r_copy)
-
         t = np.arange(0, S.T, S.DT)
 
         ## external currents
@@ -534,121 +497,6 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
         if i_e == 0:
             initial_first_spike_times = first_spk_times
 
-        if i_e >= m.SETPOINT_MEASUREMENT_PERIOD[0] and i_e < m.SETPOINT_MEASUREMENT_PERIOD[1]:
-            target_secreted_levels[:, i_e - m.SETPOINT_MEASUREMENT_PERIOD[0]] = compute_secreted_levels(spks_for_e_cells, exc_locs, m)
-
-        if i_e == m.SETPOINT_MEASUREMENT_PERIOD[1]:
-            target_secreted_levels = np.mean(target_secreted_levels, axis=1)
-            if not args.cond[0].startswith('no_repl'):
-                target_secreted_levels[M.N_EXC_OLD:M.N_EXC] = np.mean(target_secreted_levels[:M.N_EXC_OLD])
-
-        if i_e > 0:
-            exc_ee_weights = w_r_copy['E'][:m.N_EXC, :m.N_EXC]
-            exc_ei_weights = w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
-
-            # Firing rate homeostasis
-            e_diffs = np.maximum(np.sum(spks_for_e_cells > 0, axis=0) - 3, 0)
-            e_diffs_squared = np.power(e_diffs, 2)
-
-            fr_update_e = e_diffs_squared.reshape(e_diffs_squared.shape[0], 1) * np.ones((m.N_EXC, m.N_EXC)).astype(float)
-            firing_rate_homeo_depression = m.ALPHA_4 * fr_update_e
-
-            firing_rate_homeo_potentiation = m.ALPHA_3 if m.HETERO_COMP_MECH.startswith('firing_rate') else 0
-            w_r_copy['E'][:m.N_EXC, :m.N_EXC] += (m.ETA * (firing_rate_homeo_potentiation + firing_rate_homeo_depression) * exc_ee_weights)
-
-            # E-->E STDP
-            ee_update_plus = rsp.pair_update_plus[:m.N_EXC, :m.N_EXC] + rsp.trip_update_plus[:m.N_EXC, :m.N_EXC]
-            ee_update_minus = rsp.pair_update_minus[:m.N_EXC, :m.N_EXC] + rsp.trip_update_minus[:m.N_EXC, :m.N_EXC]
-
-            print('nonzero ee_connectivity count:', np.count_nonzero(ee_connectivity))
-            w_r_copy['E'][:m.N_EXC, :m.N_EXC] += m.ETA * ((m.W_E_E_R_MAX * ee_connectivity - exc_ee_weights) * ee_update_plus + exc_ee_weights * ee_update_minus)
-            
-            # E-->I STDP
-            ei_update_plus = rsp.pair_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
-            ei_update_minus = 0 * rsp.pair_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
-
-            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 5 * m.ETA * ((m.W_E_I_R_MAX * ei_connectivity - exc_ei_weights) * ei_update_plus + exc_ei_weights * ei_update_minus)
-
-            # HETEROSYNAPTIC COMPETITION RULES
-
-            if m.HETERO_COMP_MECH.startswith('secreted_regulation'):
-
-                if i_e > m.SETPOINT_MEASUREMENT_PERIOD[1]:
-                    if i_e >= m.DROPOUT_ITER:
-                        secreted_levels = compute_secreted_levels(spks_for_e_cells, exc_locs, m, surviving_cell_mask=surviving_cell_mask)
-                    else:
-                        secreted_levels = compute_secreted_levels(spks_for_e_cells, exc_locs, m)
-
-                    n_steps = int(2/1e-2)
-                    x, y, z = np.meshgrid(np.linspace(-1, 1, n_steps), np.linspace(-1, 1, n_steps), [0])
-                    square_coords = np.stack([x.flatten(), y.flatten(), z.flatten()], axis=1)
-
-                    if i_e >= m.DROPOUT_ITER:
-                        square_levels = compute_secreted_levels(spks_for_e_cells, exc_locs, m, target_locs=square_coords, surviving_cell_mask=surviving_cell_mask)
-                    else:
-                        square_levels = compute_secreted_levels(spks_for_e_cells, exc_locs, m, target_locs=square_coords)
-                    graph_weight_matrix(square_levels.reshape(n_steps, n_steps), '', ax=axs[8], cmap='viridis')
-
-                    secreted_diffs = target_secreted_levels - secreted_levels
-
-                    print(secreted_diffs)
-
-                    print('lacking activity count:', np.count_nonzero(secreted_diffs > 0))
-
-                    def sigmoid_tranform(x):
-                        return (np.exp(x) - 1) / (np.exp(x) + 1)
-
-                    sigmoid_transform_e_diffs = sigmoid_tranform(secreted_diffs / 10)
-
-                    w = m.W_E_E_R / m.PROJECTION_NUM
-
-                    # if i_e >= m.DROPOUT_ITER and i_e < m.DROPOUT_ITER + 100:
-                    #     for l_syn in range(50):
-                    #         new_synapses_ee = np.where(np.random.rand(m.N_EXC, m.N_EXC) < 0.0002, 3 * w, 0)
-                    #         new_synapses_ee[secreted_diffs <= 0, :] = 0
-                    #         if surviving_cell_mask is not None:
-                    #             # new_synapses_ee[~surviving_cell_mask, :] = 0
-                    #             new_synapses_ee[:, ~surviving_cell_mask] = 0
-                    #             new_synapses_ee[:, spks_for_e_cells.sum(axis=0) <= 0] = 0
-                    #             # new_synapses_ee[spks_for_e_cells.sum(axis=0) >= 4, :] = 0
-                    #         np.fill_diagonal(new_synapses_ee, 0)
-                    #         w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
-                    #         ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
-
-                    new_synapses_ee = 0.02 * w * sigmoid_transform_e_diffs.reshape((len(sigmoid_transform_e_diffs), 1)) * ee_connectivity
-                    if surviving_cell_mask is not None:
-                        new_synapses_ee[:, ~surviving_cell_mask] = 0
-                        new_synapses_ee[:, spks_for_e_cells.sum(axis=0) <= 0] = 0
-                    np.fill_diagonal(new_synapses_ee, 0)
-                    w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
-                    ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
-
-                    # new_synapses_ei = exp_if_under_val(0.002, (m.N_INH, m.N_EXC), m.W_E_I_R)
-                    # new_synapses_ei[:, secreted_diffs <= 0] = 0
-                    # if surviving_cell_mask is not None:
-                    #     new_synapses_ei[:, ~surviving_cell_mask] = 0
-                    # w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += new_synapses_ei
-                    # ei_connectivity = np.where(np.logical_or(ei_connectivity, new_synapses_ei > 0), 1, 0)
-
-                    # w_update = sigmoid_transform_e_diffs.reshape(sigmoid_transform_e_diffs.shape[0], 1) * np.ones((m.N_EXC, m.N_EXC + m.N_UVA)).astype(float)
-                    # w_r_copy['E'][:m.N_EXC, :m.N_EXC] += (m.ETA * m.ALPHA_5 * w_update * exc_ee_weights)
-
-            w_r_copy['E'][:m.N_EXC, :m.N_EXC][np.logical_and((w_r_copy['E'][:m.N_EXC, :m.N_EXC] < m.W_E_R_MIN), ee_connectivity.astype(bool))] = m.W_E_R_MIN
-            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC][np.logical_and((w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] < m.W_E_R_MIN), ei_connectivity.astype(bool))] = m.W_E_R_MIN
-
-            w_r_copy['E'][:m.N_EXC, :m.N_EXC][w_r_copy['E'][:m.N_EXC, m.N_EXC] > m.W_E_E_R_MAX] = m.W_E_E_R_MAX
-            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC][w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] > m.W_E_I_R_MAX] = m.W_E_I_R_MAX
-
-            # output weight bound
-            i_cell_summed_inputs = w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC].sum(axis=1)
-            rescaling = np.where(i_cell_summed_inputs  > ei_initial_summed_inputs, ei_initial_summed_inputs / i_cell_summed_inputs, 1.)
-            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] *= rescaling.reshape(rescaling.shape[0], 1)
-
-            # print('ei_mean_stdp', np.mean(m.ETA * m.BETA * stdp_burst_pair_e_i))
-            # w_r_copy['I'][:(m.N_EXC + m.N_SILENT), (m.N_EXC + m.N_SILENT):] += 1e-4 * m.ETA * m.BETA * stdp_burst_pair_e_i
-            # w_r_copy['I'][w_r_copy['I'] < 0] = 0
-            # w_r_copy['I'][w_r_copy['I'] > m.W_I_E_R_MAX] = m.W_I_E_R_MAX
-
         if i_e % 1 == 0:
             base_data_to_save = {
                 'w_e_e': m.W_E_E_R,
@@ -661,13 +509,9 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                 'freqs': freqs,
                 'exc_raster': exc_raster,
                 'inh_raster': inh_raster,
+                'w_r_e': copy(rsp.ntwk.w_r['E']),
+                'w_r_i': copy(rsp.ntwk.w_r['I']),
             }
-
-            if i_e % 20 == 0:
-                base_data_to_save.update({
-                    'w_r_e': copy(rsp.ntwk.w_r['E']),
-                    'w_r_i': copy(rsp.ntwk.w_r['I']),
-                })
 
 
             if i_e >= m.DROPOUT_ITER:
@@ -729,18 +573,27 @@ def load_previous_run(direc, num):
 w_r_e = None
 w_r_i = None
 
-# Load previous saved weight matrices if applicable
-if args.load_run is not None:
-    loaded = load_previous_run(os.path.join('./robustness', args.load_run[0]), int(args.load_run[1]))
-    w_r_e = np.array(loaded['w_r_e'].todense())
-    w_r_i = np.array(loaded['w_r_i'].todense())
-
-# Define the output directory name
-output_dir_name = f'{args.title[0]}_{time_stamp(s=True)}:{zero_pad(int(np.random.rand() * 9999), 4)}'
 # Specify which populations to drop out and at what probability
 dropout = {'E': M.DROPOUT_SEV, 'I': 0}
 
-# Begin the simulation
-run(M, output_dir_name=output_dir_name, dropout=dropout, w_r_e=w_r_e, w_r_i=w_r_i)
+w_ee_fracs = np.linspace(0.1, 1, 10)
+w_ei_fracs = np.linspace(0.1, 1, 10)
+
+macro_index = 0
+for w_ee_frac in w_ee_fracs:
+    for w_ei_frac in w_ei_fracs:
+        np.random.seed(S.RNG_SEED)
+        # Define the output directory name
+        output_dir_name = f'{args.title[0]}_idx_{macro_index}_{time_stamp(s=True)}:{zero_pad(int(np.random.rand() * 9999), 4)}'
+
+        m = copy(M)
+
+        m.W_E_E_R = w_ee_frac * m.W_E_E_R
+        m.W_E_I_R = w_ei_frac * m.W_E_I_R 
+
+        # Begin the simulation
+        run(m, output_dir_name=output_dir_name, dropout=dropout, w_r_e=w_r_e, w_r_i=w_r_i)
+
+        macro_index += 1
 
 
