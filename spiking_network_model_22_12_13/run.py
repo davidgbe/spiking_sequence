@@ -564,10 +564,12 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             w_r_copy['E'][:m.N_EXC, :m.N_EXC] += m.ETA * ((m.W_E_E_R_MAX * ee_connectivity - exc_ee_weights) * ee_update_plus + exc_ee_weights * ee_update_minus)
             
             # E-->I STDP
-            ei_update_plus = rsp.pair_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
-            ei_update_minus = 0 * rsp.pair_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
+            # ei_update_plus = rsp.pair_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_plus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
+            # ei_update_minus = 0 * rsp.pair_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
 
-            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 5 * m.ETA * ((m.W_E_I_R_MAX * ei_connectivity - exc_ei_weights) * ei_update_plus + exc_ei_weights * ei_update_minus)
+            # w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 5 * m.ETA * ((m.W_E_I_R_MAX * ei_connectivity - exc_ei_weights) * ei_update_plus + exc_ei_weights * ei_update_minus)
+
+            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 0.001 * m.W_E_I_R * ei_connectivity
 
             # HETEROSYNAPTIC COMPETITION RULES
 
@@ -639,7 +641,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             w_r_copy['E'][:m.N_EXC, :m.N_EXC][w_r_copy['E'][:m.N_EXC, m.N_EXC] > m.W_E_E_R_MAX] = m.W_E_E_R_MAX
             w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC][w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] > m.W_E_I_R_MAX] = m.W_E_I_R_MAX
 
-            # output weight bound
+            # rescaling of E-->I summed inputs
             i_cell_summed_inputs = w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC].sum(axis=1)
             rescaling = np.where(i_cell_summed_inputs  > ei_initial_summed_inputs, ei_initial_summed_inputs / i_cell_summed_inputs, 1.)
             w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] *= rescaling.reshape(rescaling.shape[0], 1)
