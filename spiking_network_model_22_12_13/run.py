@@ -568,8 +568,9 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             # ei_update_minus = 0 * rsp.pair_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] + rsp.trip_update_minus[m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC]
 
             # w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 5 * m.ETA * ((m.W_E_I_R_MAX * ei_connectivity - exc_ei_weights) * ei_update_plus + exc_ei_weights * ei_update_minus)
-
-            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += 0.001 * m.W_E_I_R * ei_connectivity
+            ei_input_increment = 0.001 * m.W_E_I_R * ei_connectivity
+            ei_input_increment[:, np.sum(spks_for_e_cells > 0, axis=0) < 1] = 0
+            w_r_copy['E'][m.N_EXC:(m.N_EXC + m.N_INH), :m.N_EXC] += ei_input_increment
 
             # HETEROSYNAPTIC COMPETITION RULES
 
@@ -617,10 +618,10 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                     #         w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
                     #         ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
 
-                    new_synapses_ee = 0.02 * w * sigmoid_transform_e_diffs.reshape((len(sigmoid_transform_e_diffs), 1)) * ee_connectivity
+                    new_synapses_ee = 0.01 * w * sigmoid_transform_e_diffs.reshape((len(sigmoid_transform_e_diffs), 1)) * ee_connectivity
                     if surviving_cell_mask is not None:
                         new_synapses_ee[:, ~surviving_cell_mask] = 0
-                        new_synapses_ee[:, spks_for_e_cells.sum(axis=0) <= 0] = 0
+                        # new_synapses_ee[:, spks_for_e_cells.sum(axis=0) <= 0] = 0
                     np.fill_diagonal(new_synapses_ee, 0)
                     w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
                     ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
