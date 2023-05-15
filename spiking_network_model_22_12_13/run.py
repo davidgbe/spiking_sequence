@@ -615,10 +615,10 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                     #         w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
                     #         ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
 
-                    new_synapses_ee = 0.02 * w * sigmoid_transform_e_diffs.reshape((len(sigmoid_transform_e_diffs), 1)) * ee_connectivity
+                    new_synapses_ee = 0.01 * w * sigmoid_transform_e_diffs.reshape((len(sigmoid_transform_e_diffs), 1)) * ee_connectivity
                     if surviving_cell_mask is not None:
                         new_synapses_ee[:, ~surviving_cell_mask] = 0
-                        new_synapses_ee[:, spks_for_e_cells.sum(axis=0) <= 0] = 0
+                        # new_synapses_ee[:, spks_for_e_cells.sum(axis=0) <= 0] = 0
                     np.fill_diagonal(new_synapses_ee, 0)
                     w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
                     ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
