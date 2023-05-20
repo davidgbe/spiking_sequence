@@ -519,10 +519,8 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
             batched_data_to_save.append(base_data_to_save)
 
-            save_freq = 100
-            if i_e % save_freq == (save_freq - 1):
-                sio.savemat(robustness_output_dir + '/' + f'title_{args.title[0]}_idx_{zero_pad(i_e, 4)}', {'data': batched_data_to_save})
-                batched_data_to_save = []
+            sio.savemat(robustness_output_dir + '/' + f'title_{args.title[0]}_idx_{zero_pad(i_e, 4)}', {'data': batched_data_to_save})
+            batched_data_to_save = []
 
             fig_save_freq = 1 if args.env == 'local' else 100
             if i_e % fig_save_freq == 0:
