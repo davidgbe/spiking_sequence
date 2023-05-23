@@ -117,7 +117,7 @@ M = Generic(
     A_TRIP_PLUS=5 * 0.3,
     A_TRIP_MINUS=0,
 
-    ETA=0.0005,
+    ETA=0.0002,
     ALPHA_1=1,
     ALPHA_2=0,
     ALPHA_3=5,
@@ -598,7 +598,9 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                     def sigmoid_tranform(x):
                         return (np.exp(x) - 1) / (np.exp(x) + 1)
 
-                    sigmoid_transform_e_diffs = sigmoid_tranform(secreted_diffs / 10)
+                    sigmoid_transform_e_diffs = secreted_diffs
+
+                    print(secreted_diffs)
 
                     w = m.W_E_E_R / m.PROJECTION_NUM
 
@@ -615,7 +617,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
                     #         w_r_copy['E'][:m.N_EXC, :m.N_EXC] += new_synapses_ee
                     #         ee_connectivity = np.where(np.logical_or(ee_connectivity.astype(bool), new_synapses_ee > 0), 1, 0)
 
-                    new_synapses_ee = 0.01 * w * sigmoid_transform_e_diffs.reshape((len(sigmoid_transform_e_diffs), 1)) * ee_connectivity
+                    new_synapses_ee = m.ETA * m.ALPHA_5 * w * sigmoid_transform_e_diffs.reshape((len(sigmoid_transform_e_diffs), 1)) * ee_connectivity
                     if surviving_cell_mask is not None:
                         new_synapses_ee[:, ~surviving_cell_mask] = 0
                         # new_synapses_ee[:, spks_for_e_cells.sum(axis=0) <= 0] = 0
