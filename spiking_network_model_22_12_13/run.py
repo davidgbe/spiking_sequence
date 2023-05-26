@@ -96,7 +96,7 @@ M = Generic(
     W_E_E_R=args.w_ee[0],
     W_E_R_MIN=1e-8,
     W_E_E_R_MAX=1e-3,
-    W_E_I_R_MAX=2 * args.w_ei[0],
+    W_E_I_R_MAX=3 * args.w_ei[0],
     SUPER_SYNAPSE_SIZE=1.5e-3,
 
     # Dropout params
@@ -127,13 +127,13 @@ M = Generic(
     HETERO_COMP_MECH=args.hetero_comp_mech[0],
     STDP_TYPE=args.stdp_type[0],
 
-    SETPOINT_MEASUREMENT_PERIOD=(1100, 1200),
+    SETPOINT_MEASUREMENT_PERIOD=(100, 200),
 )
 
 print(M.HETERO_COMP_MECH)
 print(args.cond[0])
 
-S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=115e-3, EPOCHS=7000)
+S = Generic(RNG_SEED=args.rng_seed[0], DT=0.1e-3, T=125e-3, EPOCHS=7000)
 np.random.seed(S.RNG_SEED)
 
 M.SUMMED_W_E_E_R_MAX = M.W_E_E_R
