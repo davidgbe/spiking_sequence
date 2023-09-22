@@ -179,6 +179,7 @@ if __name__ == '__main__':
 	learning_rates = [0.1, 1, 10]
 	inh_learning_rate = 0.01
 	n_networks = 30
+	g = 2
 
 	total_points = bias_w_r_points * len(learning_rates) * len(dropout_percentages) * 2
 	print('total points:', total_points)
