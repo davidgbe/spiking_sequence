@@ -168,7 +168,7 @@ def shave_front_zeros_except_last(arr):
 	
 
 if __name__ == '__main__':
-	run_name = 'param_sweep_2'
+	run_name = 'param_sweep_4'
 
 	w_0 = 10 * np.ones(50)
 
@@ -176,7 +176,9 @@ if __name__ == '__main__':
 	bias_w_r_end = np.array([0, 5])
 	bias_w_r_points = 5
 	dropout_percentages = [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7]
-	learning_rates = [0.1, 1, 5]
+	learning_rates = [0.1, 1, 10]
+	inh_learning_rate = 0.01
+	n_networks = 30
 
 	total_points = bias_w_r_points * len(learning_rates) * len(dropout_percentages) * 2
 	print('total points:', total_points)
