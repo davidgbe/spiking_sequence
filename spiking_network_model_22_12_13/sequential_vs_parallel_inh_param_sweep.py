@@ -176,7 +176,7 @@ if __name__ == '__main__':
 	bias_w_r_end = np.array([0, 5])
 	bias_w_r_points = 5
 	dropout_percentages = [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7]
-	learning_rates = [0.01, 0.05, 0.1, 0.2]
+	learning_rates = [0.1, 1, 5]
 
 	total_points = bias_w_r_points * len(learning_rates) * len(dropout_percentages) * 2
 	print('total points:', total_points)
