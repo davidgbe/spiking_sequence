@@ -195,81 +195,81 @@ if __name__ == '__main__':
 		for rate in learning_rates:
 			for dropout in dropout_percentages: 
 				X_ctrl = []
-			for i in range(n_networks):
-				sa, nsa, sawbu, ws = run_n_activations(w_0, b, g, w_r, 300, None, None, dropout_iter=10, dropout_func=make_dropout(dropout))
-				X_ctrl.append(sawbu)
-			X_ctrl = np.array(X_ctrl)
+				for i in range(n_networks):
+					sa, nsa, sawbu, ws = run_n_activations(w_0, b, g, w_r, 300, None, None, dropout_iter=10, dropout_func=make_dropout(dropout))
+					X_ctrl.append(sawbu)
+				X_ctrl = np.array(X_ctrl)
+					
+				data = {
+					'rule': ['none'],
+					'rate': [rate],
+					'w_r': [w_r_0],
+					'b' : [b],
+					'dropout': [dropout],
+					'activations': [list(X_ctrl.flatten().astype(int))],
+					'activations_shape': [X_ctrl.shape],
+				}
 				
-			data = {
-				'rule': ['none'],
-				'rate': [rate],
-				'w_r': [w_r_0],
-				'b' : [b],
-				'dropout': [dropout],
-				'activations': [list(X_ctrl.flatten().astype(int))],
-				'activations_shape': [X_ctrl.shape],
-			}
-			
-			if df is None:
-				df = pd.DataFrame(data)
-				df.to_csv(f'data/{run_name}.csv', index=False)
-			else:
-				df = pd.DataFrame(data)
-				df.to_csv(f'data/{run_name}.csv', index=False, mode='a', header=False)
+				if df is None:
+					df = pd.DataFrame(data)
+					df.to_csv(f'data/{run_name}.csv', index=False)
+				else:
+					df = pd.DataFrame(data)
+					df.to_csv(f'data/{run_name}.csv', index=False, mode='a', header=False)
+					
+				print(point_count)
+				point_count += 1
 				
-			print(point_count)
-			point_count += 1
-			
-			
-			X_homeo = []
-			for i in range(n_networks):
-				sa, nsa, sawbu, ws = run_n_activations(w_0, b, g, w_r, 300,  make_w_transform_homeostatic(rate, 1), make_w_r_transform(inh_learning_rate, w_r_0), dropout_iter=10, dropout_func=make_dropout(dropout))
-				X_homeo.append(sawbu)
-			X_homeo = np.array(X_homeo)
 				
-			data = {
-				'rule': ['homeostatic'],
-				'rate': [rate],
-				'w_r': [w_r_0],
-				'b' : [b],
-				'dropout': [dropout],
-				'activations': [list(X_homeo.flatten().astype(int))],
-				'activations_shape': [X_homeo.shape],
-			}
-			
-			if df is None:
-				df = pd.DataFrame(data)
-				df.to_csv(f'data/{run_name}.csv', index=False)
-			else:
-				df = pd.DataFrame(data)
-				df.to_csv(f'data/{run_name}.csv', index=False, mode='a', header=False)
+				X_homeo = []
+				for i in range(n_networks):
+					sa, nsa, sawbu, ws = run_n_activations(w_0, b, g, w_r, 300,  make_w_transform_homeostatic(rate, 1), make_w_r_transform(inh_learning_rate, w_r_0), dropout_iter=10, dropout_func=make_dropout(dropout))
+					X_homeo.append(sawbu)
+				X_homeo = np.array(X_homeo)
+					
+				data = {
+					'rule': ['homeostatic'],
+					'rate': [rate],
+					'w_r': [w_r_0],
+					'b' : [b],
+					'dropout': [dropout],
+					'activations': [list(X_homeo.flatten().astype(int))],
+					'activations_shape': [X_homeo.shape],
+				}
 				
-			print(point_count)
-			point_count += 1
-				
+				if df is None:
+					df = pd.DataFrame(data)
+					df.to_csv(f'data/{run_name}.csv', index=False)
+				else:
+					df = pd.DataFrame(data)
+					df.to_csv(f'data/{run_name}.csv', index=False, mode='a', header=False)
+					
+				print(point_count)
+				point_count += 1
+					
 
-			X_stdp = []
-			for i in range(n_networks):
-				sa, nsa, sawbu, ws = run_n_activations(w_0, b, g, w_r, 300, make_w_transform_seq(rate, 10), make_w_r_transform(inh_learning_rate, w_r_0), dropout_iter=10, dropout_func=make_dropout(dropout))
-				X_stdp.append(sawbu)
-			X_stdp = np.array(X_stdp)
-			
-			data = {
-				'rule': ['stdp'],
-				'rate': [rate],
-				'w_r': [w_r_0],
-				'b' : [b],
-				'dropout': [dropout],
-				'activations': [list(X_stdp.flatten().astype(int))],
-				'activations_shape': [X_stdp.shape],
-			}
-			
-			if df is None:
-				df = pd.DataFrame(data)
-				df.to_csv(f'data/{run_name}.csv', index=False)
-			else:
-				df = pd.DataFrame(data)
-				df.to_csv(f'data/{run_name}.csv', index=False, mode='a', header=False)
+				X_stdp = []
+				for i in range(n_networks):
+					sa, nsa, sawbu, ws = run_n_activations(w_0, b, g, w_r, 300, make_w_transform_seq(rate, 10), make_w_r_transform(inh_learning_rate, w_r_0), dropout_iter=10, dropout_func=make_dropout(dropout))
+					X_stdp.append(sawbu)
+				X_stdp = np.array(X_stdp)
 				
-			print(point_count)
-			point_count += 1
+				data = {
+					'rule': ['stdp'],
+					'rate': [rate],
+					'w_r': [w_r_0],
+					'b' : [b],
+					'dropout': [dropout],
+					'activations': [list(X_stdp.flatten().astype(int))],
+					'activations_shape': [X_stdp.shape],
+				}
+				
+				if df is None:
+					df = pd.DataFrame(data)
+					df.to_csv(f'data/{run_name}.csv', index=False)
+				else:
+					df = pd.DataFrame(data)
+					df.to_csv(f'data/{run_name}.csv', index=False, mode='a', header=False)
+					
+				print(point_count)
+				point_count += 1
