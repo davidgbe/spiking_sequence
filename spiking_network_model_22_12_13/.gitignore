@@ -1,5 +1,6 @@
 figures/**/*
 robustness/**/*
+data/**/*
 **/__pycache__/**/*
 __pycache__/**/*
 python-env/
@@ -7,5 +8,6 @@ python-env/
 slurm*
 submit_klone_*
 *.zip
+**/*.csv
 .ipynb_checkpoints
 paper/**/*
