@@ -214,9 +214,9 @@ def extract_max_length_var(lengths, window_size=10):
 	
 
 if __name__ == '__main__':
-	run_name = 'param_sweep_9'
+	run_name = 'param_sweep_11'
 
-	network_size = 200
+	network_size = 50
 	w_0 = 10 * np.ones(network_size)
 	dropout_percentages = [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7]
 	learning_rates = [0.05, 0.1, 0.2]
@@ -224,7 +224,7 @@ if __name__ == '__main__':
 	n_networks = 50
 	g = 3
 	w_r_0 = 4
-	b = 2.3
+	b = 1.7
 
 	total_points = len(learning_rates) * len(dropout_percentages) * 2
 	print('total points:', total_points)
@@ -237,7 +237,7 @@ if __name__ == '__main__':
 			X_homeo = []
 			for i in range(n_networks):
 				w_r = w_r_0 * np.ones(network_size)
-				sa, nsa, sawbu, ws = run_n_activations(w_0, b, g, w_r, 600, make_w_transform_homeostatic(rate, 1), make_w_r_transform(inh_learning_rate, w_r_0), dropout_iter=10, dropout_func=make_dropout(dropout))
+				sa, nsa, sawbu, ws = run_n_activations(w_0, b, g, w_r, 1000, make_w_transform_homeostatic(rate, 1), make_w_r_transform(inh_learning_rate, w_r_0), dropout_iter=10, dropout_func=make_dropout(dropout))
 				X_homeo.append(sawbu)
 			X_homeo = np.array(X_homeo)
 
@@ -265,7 +265,7 @@ if __name__ == '__main__':
 			X_stdp = []
 			for i in range(n_networks):
 				w_r = w_r_0 * np.ones(network_size)
-				sa, nsa, sawbu, ws = run_n_activations(w_0, b, g, w_r, 600, make_w_transform_seq(rate, w_0[0]), make_w_r_transform(inh_learning_rate, w_r_0), dropout_iter=10, dropout_func=make_dropout(dropout))
+				sa, nsa, sawbu, ws = run_n_activations(w_0, b, g, w_r, 1000, make_w_transform_seq(rate, w_0[0]), make_w_r_transform(inh_learning_rate, w_r_0), dropout_iter=10, dropout_func=make_dropout(dropout))
 				X_stdp.append(sawbu)
 			X_stdp = np.array(X_stdp)
 

@@ -80,7 +80,8 @@ M = Generic(
     INPUT_DELAY=10e-3,
     
     # OTHER INPUTS
-    SGM_N=10e-11,  # noise level (A*sqrt(s))
+    SGM_N_EXC=1e-9, 
+    SGM_N_INH=1e-10,  # noise level (A*sqrt(s))
     I_EXT_B=0,  # additional baseline current input
 
     # Connection probabilities
@@ -250,7 +251,6 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
     if w_r_i is None:
 
         i_e_r = gaussian_if_under_val(m.I_E_CON_PROB, (m.N_EXC, m.N_INH), m.W_I_E_R, 0)
-        # i_e_r[m.N_EXC_OLD - m.PROJECTION_NUM:m.N_EXC_OLD, :] = 0
 
         w_r_i = np.block([
             [ np.zeros((m.N_EXC, m.N_EXC + m.N_UVA)), i_e_r],
@@ -360,6 +360,9 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
         start = time.time()
 
+        if i_e == 10:
+            w_r_copy['I'][100, :] = 0
+
         if i_e >= m.DROPOUT_ITER and i_e < m.DROPOUT_ITER + n_dropout_iters:
             w_r_copy['E'][:(m.N_EXC + m.N_UVA + m.N_INH), :m.N_EXC_OLD], surviving_cell_mask_new = dropout_on_mat(w_r_copy['E'][:(m.N_EXC + m.N_UVA + m.N_INH), :m.N_EXC_OLD], p_dropout_for_i_e)
             surviving_cell_mask_new = np.concatenate([surviving_cell_mask_new, np.ones(m.N_EXC_NEW)])
@@ -398,7 +401,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
         t = np.arange(0, S.T, S.DT)
 
         ## external currents
-        i_ext = m.SGM_N/S.DT * np.random.randn(len(t), m.N_EXC + m.N_UVA + m.N_INH) + m.I_EXT_B
+        i_ext = np.concatenate([m.SGM_N_EXC/S.DT * np.random.randn(len(t), m.N_EXC), m.SGM_N_INH/S.DT * np.random.randn(len(t), m.N_INH)], axis=1) + m.I_EXT_B
 
         ## inp spks
         spks_u_base = np.zeros((len(t), m.N_EXC_OLD), dtype=int)
@@ -490,6 +493,8 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
         graph_weight_matrix(w_r_copy['E'][m.N_EXC:, :m.N_EXC], 'w_e_i_r\n', ax=axs[6], v_max=m.W_E_I_R_MAX, cmap=cmap)
 
         spks_for_e_cells = rsp.spks[:, :m.N_EXC]
+
+        print('uninhibited_activity', np.count_nonzero(spks_for_e_cells[:, 100]))
         spks_for_i_cells = rsp.spks[:, (m.N_EXC + m.N_UVA):(m.N_EXC + m.N_UVA + m.N_INH)]
 
         spks_received_for_e_cells = rsp.spks_received[:, :m.N_EXC, :m.N_EXC]
