@@ -213,7 +213,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
     os.makedirs(robustness_output_dir)
     
     w_u_proj = np.diag(np.ones(m.N_DRIVING_CELLS)) * m.W_U_E * 0.5
-    w_u_uva = np.diag(np.ones(m.N_EXC_OLD - m.N_DRIVING_CELLS)) * m.W_U_E * 0.25
+    w_u_uva = np.diag(np.ones(m.N_EXC_OLD - m.N_DRIVING_CELLS)) * m.W_U_E * 0.15 # initially 0.25
 
     w_u_e = np.zeros([m.N_EXC_OLD, m.N_EXC_OLD])
     w_u_e[:m.N_DRIVING_CELLS, :m.N_DRIVING_CELLS] += w_u_proj
@@ -425,7 +425,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
         def make_poisson_input(dur=0.1, offset=0.005):
             x = np.zeros(len(t))
-            x[int(offset/S.DT):int(offset/S.DT) + int(dur/S.DT)] = np.random.poisson(lam=10 * S.DT, size=int(dur/S.DT))
+            x[int(offset/S.DT):int(offset/S.DT) + int(dur/S.DT)] = np.random.poisson(lam=50 * S.DT, size=int(dur/S.DT)) # initially 10
             return x
 
         spks_u[:, m.N_DRIVING_CELLS:m.N_EXC_OLD] = np.stack([make_poisson_input(offset=m.INPUT_DELAY) for i in range(m.N_EXC_OLD - m.N_DRIVING_CELLS)]).T
