@@ -80,7 +80,7 @@ M = Generic(
     INPUT_DELAY=10e-3,
     
     # OTHER INPUTS
-    SGM_N_EXC=1e-9, 
+    SGM_N_EXC=1e-10, 
     SGM_N_INH=1e-10,  # noise level (A*sqrt(s))
     I_EXT_B=0,  # additional baseline current input
 
@@ -213,7 +213,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
     os.makedirs(robustness_output_dir)
     
     w_u_proj = np.diag(np.ones(m.N_DRIVING_CELLS)) * m.W_U_E * 0.5
-    w_u_uva = np.diag(np.ones(m.N_EXC_OLD - m.N_DRIVING_CELLS)) * m.W_U_E * 0
+    w_u_uva = np.diag(np.ones(m.N_EXC_OLD - m.N_DRIVING_CELLS)) * m.W_U_E * 0.25
 
     w_u_e = np.zeros([m.N_EXC_OLD, m.N_EXC_OLD])
     w_u_e[:m.N_DRIVING_CELLS, :m.N_DRIVING_CELLS] += w_u_proj
@@ -360,8 +360,8 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
 
         start = time.time()
 
-        if i_e == 10:
-            w_r_copy['I'][100, :] = 0
+        # if i_e == 10:
+        #     w_r_copy['I'][100, :] = 0
 
         if i_e >= m.DROPOUT_ITER and i_e < m.DROPOUT_ITER + n_dropout_iters:
             w_r_copy['E'][:(m.N_EXC + m.N_UVA + m.N_INH), :m.N_EXC_OLD], surviving_cell_mask_new = dropout_on_mat(w_r_copy['E'][:(m.N_EXC + m.N_UVA + m.N_INH), :m.N_EXC_OLD], p_dropout_for_i_e)
@@ -423,13 +423,12 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             except IndexError as e:
                 pass
 
-        def make_poisson_input(dur=0.16, offset=0.05):
+        def make_poisson_input(dur=0.1, offset=0.005):
             x = np.zeros(len(t))
             x[int(offset/S.DT):int(offset/S.DT) + int(dur/S.DT)] = np.random.poisson(lam=10 * S.DT, size=int(dur/S.DT))
             return x
 
-        # uva_spks_base = np.random.poisson(lam=20 * S.DT, size=len(t))
-        # spks_u[:, m.N_DRIVING_CELLS:m.N_EXC_OLD] = np.stack([make_poisson_input() for i in range(m.N_EXC_OLD - m.N_DRIVING_CELLS)]).T
+        spks_u[:, m.N_DRIVING_CELLS:m.N_EXC_OLD] = np.stack([make_poisson_input(offset=m.INPUT_DELAY) for i in range(m.N_EXC_OLD - m.N_DRIVING_CELLS)]).T
 
         ntwk = LIFNtwkG(
             c_m=c_m,
