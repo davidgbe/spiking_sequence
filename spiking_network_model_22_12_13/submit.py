@@ -82,7 +82,7 @@ params['W_I_E'] = [str(4e-5)]
 params['DROP_SEV'] = [str(0.1), str(0.25), str(0.5)]
 params['COMP_MECH'] = ['none']
 params['CONDITION'] = ['no_repl_no_syn']
-params['PER_SILENT'] = [str(0)]
+params['PER_SILENT'] = [str(0.4)]
 params['A5'] = [str(5)]
 
 n_seeds = len(params['SEED'])
