@@ -79,10 +79,10 @@ params['SEED'] = [str(i) for i in range(7000, 7010)]
 params['W_E_E'] = [str(0.4e-3)]
 params['W_E_I'] = [str(3.5e-5)] # 3.5e-5 for silent
 params['W_I_E'] = [str(4e-5)]
-params['DROP_SEV'] = [str(0.1), str(0.25), str(0.5)]
-params['COMP_MECH'] = ['none']
+params['DROP_SEV'] = [str(0.5), str(0.6), str(0.7)]
+params['COMP_MECH'] = ['secreted_regulation']
 params['CONDITION'] = ['no_repl_no_syn']
-params['PER_SILENT'] = [str(0)]
+params['PER_SILENT'] = [str(0.4)]
 params['A5'] = [str(5)]
 
 n_seeds = len(params['SEED'])
