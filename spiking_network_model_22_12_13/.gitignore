@@ -9,3 +9,4 @@ submit_klone_*
 *.zip
 .ipynb_checkpoints
 paper/**/*
+**/*.csv
