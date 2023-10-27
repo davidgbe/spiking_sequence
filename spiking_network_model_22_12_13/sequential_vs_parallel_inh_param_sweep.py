@@ -241,7 +241,7 @@ def extract_max_length_var(lengths, window_size=10):
     return v_max, i_max, np.array(all_v)
 
 if __name__ == '__main__':
-	run_name = 'param_sweep_12'
+	run_name = 'param_sweep_13'
 
 	network_size = 50
 	width = 10
