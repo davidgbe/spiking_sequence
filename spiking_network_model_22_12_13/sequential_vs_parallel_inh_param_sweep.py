@@ -293,7 +293,7 @@ if __name__ == '__main__':
 			X_stdp = []
 			for i in range(n_networks):
 				w_r = w_r_0 * np.ones((network_size, width))
-				sa, nsa, sawbu, ws = run_n_activations(w_0, b, g, w_r, 1000, make_w_transform_seq(rate, w_0[0, 0, 0]), make_w_r_transform(inh_learning_rate, w_r_0), dropout_iter=10, dropout_func=make_dropout(dropout))
+				sa, nsa, sawbu, ws = run_n_activations(w_0, b, g, w_r, 1000, make_w_transform_seq(rate, w_0[0, 0, 0] * width), make_w_r_transform(inh_learning_rate, w_r_0), dropout_iter=10, dropout_func=make_dropout(dropout))
 				X_stdp.append(sawbu)
 			X_stdp = np.array(X_stdp)
 
