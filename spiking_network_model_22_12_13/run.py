@@ -428,7 +428,7 @@ def run(m, output_dir_name, dropout={'E': 0, 'I': 0}, w_r_e=None, w_r_i=None):
             x[int(offset/S.DT):int(offset/S.DT) + int(dur/S.DT)] = np.random.poisson(lam=50 * S.DT, size=int(dur/S.DT)) # initially 10
             return x
 
-        spks_u[:, m.N_DRIVING_CELLS:m.N_EXC_OLD] = np.stack([make_poisson_input(offset=m.INPUT_DELAY) for i in range(m.N_EXC_OLD - m.N_DRIVING_CELLS)]).T
+        # spks_u[:, m.N_DRIVING_CELLS:m.N_EXC_OLD] = np.stack([make_poisson_input(offset=m.INPUT_DELAY) for i in range(m.N_EXC_OLD - m.N_DRIVING_CELLS)]).T
 
         ntwk = LIFNtwkG(
             c_m=c_m,
